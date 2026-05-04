@@ -268,10 +268,16 @@ async def manejar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_comparar(update, context)
     elif accion == "menu_inicio":
         await cmd_menu(update, context)
+    elif accion == "menu_nueva_menu":
+        await cmd_nueva_prenda_menu(update, context)
     elif accion == "menu_nueva_guiado":
         await cmd_nueva_prenda(update, context)
     elif accion == "menu_ia":
         await cmd_ia(update, context)
+    elif accion == "fin_topclientes":
+        await cmd_top_clientes(update, context)
+    elif accion.startswith("menu_verf:"):
+        await cmd_ver_foto_directo(update, context)
     elif accion == "menu_ayuda":
         await query.message.reply_text(_texto_ayuda())
 
@@ -1209,7 +1215,13 @@ async def stock_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_T
     if not prenda:
         await query.edit_message_text("Error. Intenta de nuevo con /prenda")
         return ConversationHandler.END
-    await query.edit_message_text(await _formato_stock(prenda))
+    
+    # Mostrar datos de la prenda y botón para ver foto
+    texto = await _formato_stock(prenda)
+    teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🖼️ Ver foto", callback_data=f"menu_verf:{page_id}")]
+    ])
+    await query.edit_message_text(texto, reply_markup=teclado)
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -1642,6 +1654,7 @@ async def cmd_ganancias_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("📈 Por margen",        callback_data="fin_pormargen")],
         [InlineKeyboardButton("🏪 Por tienda",        callback_data="fin_portienda")],
         [InlineKeyboardButton("📅 Por fecha",         callback_data="fin_porfecha")],
+        [InlineKeyboardButton("👥 Top Clientes",      callback_data="fin_topclientes")],
         [InlineKeyboardButton("❌ Cancelar",          callback_data="menu_inicio")],
     ])
     msg = update.message or update.callback_query.message
@@ -2000,3 +2013,81 @@ async def cmd_auditar_ventas(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await msg.reply_text("\n".join(lineas))
 
+
+async def cmd_top_clientes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query: await query.answer()
+    msg = update.message or query.message
+    await msg.reply_text("Analizando historial de clientes... ⏳")
+    
+    if not NOTION_VENTAS_ID:
+        await msg.reply_text("No hay BD de ventas configurada.")
+        return
+
+    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    payload = {"page_size": 100}
+    
+    # Paginar para obtener todos (opcional, pero 100 es bueno para empezar)
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+    if r.status_code != 200:
+        await msg.reply_text("Error al consultar Notion. Intenta de nuevo.")
+        return
+    
+    ventas = r.json().get("results", [])
+    clientes = {}
+    
+    for page in ventas:
+        props = page.get("properties", {})
+        try:
+            cliente_r = props.get("Cliente", {}).get("rich_text", [])
+            cliente = cliente_r[0]["text"]["content"].strip() if cliente_r else ""
+            if not cliente or cliente.lower() == "anonimo": continue
+            
+            ganancia = props.get("Ganancia", {}).get("number") or 0
+            cantidad = props.get("Cantidad", {}).get("number") or 0
+            
+            if cliente not in clientes:
+                clientes[cliente] = {"cantidad": 0, "ganancia": 0, "compras": 0}
+            
+            clientes[cliente]["cantidad"] += cantidad
+            clientes[cliente]["ganancia"] += ganancia
+            clientes[cliente]["compras"] += 1
+        except Exception:
+            continue
+            
+    if not clientes:
+        await msg.reply_text("No se encontraron clientes registrados con nombre en las ventas.")
+        return
+        
+    top = sorted(clientes.items(), key=lambda x: x[1]["ganancia"], reverse=True)[:10]
+    
+    lineas = ["👥 *Top 10 Clientes*"]
+    lineas.append("Basado en las ganancias totales generadas:\n")
+    
+    for i, (cli, datos) in enumerate(top, 1):
+        lineas.append(f"{i}. *{cli}*")
+        lineas.append(f"   Ganancia: S/{datos['ganancia']:.0f} | Uds: {datos['cantidad']} | Compras: {datos['compras']}")
+        
+    teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⬅️ Volver", callback_data="menu_ganancias")],
+        [InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")],
+    ])
+    await msg.reply_text("\n".join(lineas), reply_markup=teclado, parse_mode="Markdown")
+
+async def cmd_ver_foto_directo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    page_id = query.data.replace("menu_verf:", "")
+    foto_url = await obtener_foto_url(page_id)
+    if foto_url:
+        await query.message.reply_photo(photo=foto_url)
+    else:
+        await query.message.reply_text("Esta prenda no tiene foto registrada.")
+
+async def cmd_nueva_prenda_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    teclado = teclado_menu_nueva_prenda()
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text("📸 *Nueva prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("📸 *Nueva prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")

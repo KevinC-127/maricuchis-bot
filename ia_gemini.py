@@ -282,11 +282,7 @@ def teclado_lista_prendas(prendas: list, accion: str) -> InlineKeyboardMarkup:
 def teclado_menu_principal() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("📸 Nueva prenda",    callback_data="menu_nueva_guiado"),
-            InlineKeyboardButton("📝 Sin foto",        callback_data="menu_sinfoto"),
-        ],
-        [
-            InlineKeyboardButton("🖼️ Adjuntar foto",  callback_data="menu_adjfoto"),
+            InlineKeyboardButton("📸 Nueva prenda",    callback_data="menu_nueva_menu"),
             InlineKeyboardButton("💰 Registrar venta", callback_data="menu_venta"),
         ],
         [
@@ -300,16 +296,23 @@ def teclado_menu_principal() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🗑️ Eliminar venta", callback_data="menu_eliminar_venta"),
         ],
         [
-            InlineKeyboardButton("🖼️ Ver foto",        callback_data="menu_verfoto"),
             InlineKeyboardButton("📋 Ver inventario",  callback_data="menu_inventario"),
+            InlineKeyboardButton("📊 Gráfico stock",      callback_data="menu_graficostock"),
         ],
-        [InlineKeyboardButton("📊 Gráfico stock",      callback_data="menu_graficostock")],
         [
             InlineKeyboardButton("💰 Ganancias",          callback_data="menu_ganancias"),
             InlineKeyboardButton("⚖️ Comparar prendas",   callback_data="menu_comparar"),
         ],
         [InlineKeyboardButton("🤖 Preguntarle a la IA",   callback_data="menu_ia")],
         [InlineKeyboardButton("❓ Ayuda",                  callback_data="menu_ayuda")],
+    ])
+
+def teclado_menu_nueva_prenda() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📝 Sin foto",            callback_data="menu_sinfoto")],
+        [InlineKeyboardButton("🖼️ Actualizar foto",    callback_data="menu_adjfoto")],
+        [InlineKeyboardButton("✍️ Escribir nueva prenda", callback_data="menu_nueva_guiado")],
+        [InlineKeyboardButton("⬅️ Volver",              callback_data="menu_inicio")]
     ])
 
 def _texto_ayuda() -> str:
