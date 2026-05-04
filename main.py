@@ -137,24 +137,25 @@ def main():
                 CallbackQueryHandler(venta_volver_cantidad, pattern="^volver_cantidad$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_precio_manual),
             ],
-            VENTA_FECHA:     [
-                CallbackQueryHandler(venta_recibir_fecha, pattern="^fecha_venta_"),
-                CallbackQueryHandler(venta_volver_descuento, pattern="^volver_descuento$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_fecha_manual),
-            ],
+            VENTA_MAS:       [CallbackQueryHandler(venta_mas_prendas, pattern="^mas_si$|^mas_no$")],
             VENTA_CLIENTE:   [
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^cliente_sin_nombre$"),
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^cliente_nueva$"),
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^cliente_prev_"),
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^page_cliente:"),
-                CallbackQueryHandler(venta_volver_fecha, pattern="^volver_fecha$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_cliente_texto),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_cliente),
+            ],
+            VENTA_FECHA:     [
+                CallbackQueryHandler(venta_recibir_fecha, pattern="^fecha_venta_"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_fecha),
             ],
             VENTA_DESCUENTO: [
                 CallbackQueryHandler(venta_recibir_descuento, pattern="^descuento_"),
-                CallbackQueryHandler(venta_volver_precio, pattern="^volver_precio$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_descuento_monto),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_descuento),
             ],
+            VENTA_PAGO:      [
+                CallbackQueryHandler(venta_finalizar, pattern="^pago_"),
+            ]
         },
         fallbacks=[
             CommandHandler("cancelar", cmd_cancelar),
@@ -250,6 +251,31 @@ def main():
     )
 
     # Registrar todos los handlers
+    
+    # ConversationHandler - Gastos
+    gasto_handler = ConversationHandler(
+        entry_points=[CommandHandler("gasto", cmd_gasto), CallbackQueryHandler(cmd_gasto, pattern="^menu_gasto$")],
+        states={
+            GASTO_NOMBRE: [MessageHandler(filters.TEXT & ~filters.COMMAND, gasto_recibir_nombre)],
+            GASTO_MONTO: [MessageHandler(filters.TEXT & ~filters.COMMAND, gasto_recibir_monto)]
+        },
+        fallbacks=[CommandHandler("cancelar", cmd_cancelar), CallbackQueryHandler(fallback_menu_inicio, pattern="^menu_inicio$")],
+        per_message=False
+    )
+    app.add_handler(gasto_handler)
+
+    # ConversationHandler - Devolucion
+    devolucion_handler = ConversationHandler(
+        entry_points=[CommandHandler("devolucion", cmd_devolucion), CallbackQueryHandler(cmd_devolucion, pattern="^menu_devolucion$")],
+        states={
+            DEV_BUSCAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, devolucion_buscar)],
+            DEV_CONFIRMAR: [CallbackQueryHandler(devolucion_confirmar, pattern="^sel_dev:|^cancelar$")]
+        },
+        fallbacks=[CommandHandler("cancelar", cmd_cancelar), CallbackQueryHandler(fallback_menu_inicio, pattern="^menu_inicio$")],
+        per_message=False
+    )
+    app.add_handler(devolucion_handler)
+
     app.add_handler(ia_handler)
     app.add_handler(nueva_prenda_handler)
     app.add_handler(sinfoto_handler)

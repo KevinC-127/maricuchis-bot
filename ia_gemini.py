@@ -315,6 +315,10 @@ def teclado_menu_principal() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("💰 Ganancias",          callback_data="menu_ganancias"),
+            InlineKeyboardButton("💸 Gastos",             callback_data="menu_gasto"),
+        ],
+        [
+            InlineKeyboardButton("🔄 Devolución",         callback_data="menu_devolucion"),
             InlineKeyboardButton("⚖️ Comparar prendas",   callback_data="menu_comparar"),
         ],
         [InlineKeyboardButton("🤖 Preguntarle a la IA",   callback_data="menu_ia")],
@@ -336,9 +340,11 @@ def _texto_ayuda() -> str:
         "/sinfoto - Registrar prenda sin foto (paso a paso)\n"
         "/adjfoto - Adjuntar foto a prenda ya registrada\n\n"
         "VENTAS Y STOCK\n"
-        "/venta   - Registrar venta y descontar stock\n"
+        "/venta   - Registrar venta (carrito, separaciones)\n"
         "/prenda  - Consultar detalle de una prenda\n"
-        "/agotados - Ver todas las prendas sin stock\n\n"
+        "/devolucion - Devolver venta y restaurar stock\n"
+        "/gasto   - Registrar gasto (pasajes, empaque, etc.)\n"
+        "/agotados - Lista prendas sin stock\n\n"
         "VER Y CONSULTAS\n"
         "/verfoto    - Ver la foto de una prenda\n"
         "/inventario - Ver todas las prendas del inventario\n\n"

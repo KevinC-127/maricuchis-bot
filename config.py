@@ -40,8 +40,9 @@ from telegram.ext import (
 # ------------------------------------------------------------
 TELEGRAM_TOKEN      = os.environ.get("TELEGRAM_TOKEN")
 NOTION_TOKEN        = os.environ.get("NOTION_TOKEN")
-NOTION_DATABASE_ID  = os.environ.get("NOTION_DATABASE_ID")
-NOTION_VENTAS_ID    = os.environ.get("NOTION_VENTAS_ID")
+NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
+NOTION_VENTAS_ID   = os.getenv("NOTION_VENTAS_ID")
+NOTION_GASTOS_ID   = os.getenv("NOTION_GASTOS_ID", "3563d6e7c6ee8040b93cd0d14b135551")
 IMGBB_API_KEY       = os.environ.get("IMGBB_API_KEY")
 ADMIN_CHAT_ID       = os.environ.get("ADMIN_CHAT_ID")
 GEMINI_API_KEY      = os.environ.get("GEMINI_API_KEY")   # ← NUEVO
