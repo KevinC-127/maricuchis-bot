@@ -1194,7 +1194,12 @@ async def stock_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"No encontre prendas con '{termino}'.")
         return STOCK_BUSCAR
     if len(prendas) == 1:
-        await update.message.reply_text(await _formato_stock(prendas[0]))
+        prenda = prendas[0]
+        texto = await _formato_stock(prenda)
+        teclado = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🖼️ Ver foto", callback_data=f"menu_verf:{prenda['id']}")]
+        ])
+        await update.message.reply_text(texto, reply_markup=teclado)
         return ConversationHandler.END
     context.user_data["prendas_encontradas"] = {p["id"]: p for p in prendas}
     await update.message.reply_text(

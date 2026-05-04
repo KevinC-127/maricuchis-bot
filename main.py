@@ -304,6 +304,17 @@ def main():
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^fin_"))
 
+    # Handler global para callbacks perdidos/reiniciados
+    async def callback_invalido(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.callback_query:
+            await update.callback_query.answer("⚠️ La sesión expiró o el bot se reinició. Vuelve a iniciar la acción.", show_alert=True)
+            try:
+                await update.callback_query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+    
+    app.add_handler(CallbackQueryHandler(callback_invalido))
+
     logger.info("Bot Maricuchis Store v5.0 iniciado con IA Gemini integrada")
     app.run_polling()
 
