@@ -88,10 +88,14 @@ async def venta_recibir_cantidad(update: Update, context: ContextTypes.DEFAULT_T
         
     item["cantidad"] = cant
     botones = [
-        [InlineKeyboardButton(f"S/ {prenda['precio']:.0f} (Normal)", callback_data=f"precio_venta_{prenda['precio']:.0f}")],
+        [InlineKeyboardButton(f"Sin descuento (S/ {prenda['precio']:.0f})", callback_data=f"precio_venta_{prenda['precio']:.0f}")],
+        [
+            InlineKeyboardButton(f"- S/5 (Queda S/{prenda['precio']-5:.0f})", callback_data=f"precio_venta_{prenda['precio']-5:.0f}"),
+            InlineKeyboardButton(f"- S/10 (Queda S/{prenda['precio']-10:.0f})", callback_data=f"precio_venta_{prenda['precio']-10:.0f}")
+        ],
         [InlineKeyboardButton("⬅️ Volver", callback_data="volver_cantidad")]
     ]
-    await update.message.reply_text("¿A qué precio unitario la vendiste? (Elige o escribe un precio diferente):", reply_markup=InlineKeyboardMarkup(botones))
+    await update.message.reply_text("¿Aplicarás algún descuento a esta prenda en específico? (Elige un botón o escribe el precio unitario final):", reply_markup=InlineKeyboardMarkup(botones))
     return VENTA_PRECIO
 
 async def venta_volver_cantidad(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -255,7 +259,7 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text("Procesando carrito y actualizando Notion...")
     
-    # Repartir descuento global proporcionalmente o en el primer item
+    # Repartir descuento global proporcionalmente
     desc_por_item = descuento_global / len(carrito) if len(carrito) > 0 else 0
     
     mensajes = []
@@ -263,6 +267,14 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         p = item["prenda"]
         c = item["cantidad"]
         pf = item["precio_final"]
+        
+        precio_base_unitario = p["precio"]
+        descuento_unitario = precio_base_unitario - pf
+        if descuento_unitario < 0: descuento_unitario = 0
+        
+        # Descuento total de la fila = (descuento individual * cantidad) + parte del descuento global
+        descuento_total_fila = (descuento_unitario * c) + desc_por_item
+        
         costo_u = p["costo"] / p["stock"] if p["stock"] > 0 else 0
         ganancia = (pf * c) - (costo_u * c) - desc_por_item
         
@@ -270,16 +282,16 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         exito = await crear_venta_notion(
             prenda_id=p["id"],
             cantidad=c,
-            precio_final=pf * c,
+            precio_final=(pf * c) - desc_por_item,
             ganancia=ganancia,
             fecha_iso=fecha,
             cliente=cliente,
-            descuento=desc_por_item,
-            #estado=estado_pago # HACK: requires modifying crear_venta_notion if Notion DB supports it
+            descuento=descuento_total_fila,
+            estado=estado_pago
         )
         if exito:
             await actualizar_stock_notion(p["id"], p["stock"] - c)
-            mensajes.append(f"✅ {c}x {p['nombre']}")
+            mensajes.append(f"✅ {c}x {p['nombre']} (-S/{descuento_total_fila:.1f} desc)")
         else:
             mensajes.append(f"❌ Error en {p['nombre']}")
             
