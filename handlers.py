@@ -972,7 +972,7 @@ def _sync_obtener_clientes_previos() -> list:
     payload = {"page_size": 100, "sorts": [{"property": "Fecha", "direction": "descending"}]}
     clientes = set()
     try:
-        r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
         if r.status_code != 200:
             return []
         for page in r.json().get("results", []):
@@ -1211,24 +1211,33 @@ async def stock_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def stock_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    if query.data == "cancelar":
-        await query.edit_message_text("Cancelado.")
+    try:
+        if query.data == "cancelar":
+            await query.edit_message_text("Cancelado.")
+            context.user_data.clear()
+            return ConversationHandler.END
+        
+        page_id = query.data.replace("sel_stock:", "")
+        prenda  = context.user_data.get("prendas_encontradas", {}).get(page_id)
+        if not prenda:
+            await query.edit_message_text("Error. Intenta de nuevo con /prenda")
+            return ConversationHandler.END
+        
+        # Mostrar datos de la prenda y botón para ver foto
+        texto = await _formato_stock(prenda)
+        teclado = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🖼️ Ver foto", callback_data=f"menu_verf:{page_id}")]
+        ])
+        await query.edit_message_text(texto, reply_markup=teclado)
         context.user_data.clear()
         return ConversationHandler.END
-    page_id = query.data.replace("sel_stock:", "")
-    prenda  = context.user_data.get("prendas_encontradas", {}).get(page_id)
-    if not prenda:
-        await query.edit_message_text("Error. Intenta de nuevo con /prenda")
+    except Exception as e:
+        import traceback
+        error_msg = f"Error en stock_confirmar_prenda: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        await query.message.reply_text(f"Ocurrió un error interno:\n{str(e)}")
+        context.user_data.clear()
         return ConversationHandler.END
-    
-    # Mostrar datos de la prenda y botón para ver foto
-    texto = await _formato_stock(prenda)
-    teclado = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🖼️ Ver foto", callback_data=f"menu_verf:{page_id}")]
-    ])
-    await query.edit_message_text(texto, reply_markup=teclado)
-    context.user_data.clear()
-    return ConversationHandler.END
 
 # ============================================================
 # CONVERSATION HANDLER — EDITAR PRENDA
@@ -1380,7 +1389,7 @@ async def editar_campo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r = requests.patch(
             f"https://api.notion.com/v1/pages/{prenda['id']}",
             headers=NOTION_HEADERS, json={"archived": True}
-        )
+        , timeout=15)
         if r.status_code == 200:
             await query.edit_message_text(f"🗑️ Prenda *{prenda['nombre']}* eliminada correctamente.")
         else:
@@ -1490,7 +1499,7 @@ async def eliminar_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"https://api.notion.com/v1/pages/{prenda['id']}",
             headers=NOTION_HEADERS,
             json={"archived": True}
-        )
+        , timeout=15)
         if r.status_code == 200:
             await query.edit_message_text(f"✅ '{prenda['nombre']}' eliminada del inventario.")
         else:
@@ -1719,7 +1728,7 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
         "page_size": 100
     }
     await query.message.reply_text(f"Calculando ganancias: {etiqueta}…")
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         await query.message.reply_text("Error al consultar Notion. Intenta de nuevo.")
         return
@@ -1912,7 +1921,7 @@ def _sync_auditar_y_corregir_ganancias() -> dict:
     todos   = []
     # Paginar por si hay más de 100 registros
     while True:
-        r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
         if r.status_code != 200:
             return {"error": f"Error Notion {r.status_code}"}
         data = r.json()
@@ -1951,7 +1960,7 @@ def _sync_auditar_y_corregir_ganancias() -> dict:
                     f"https://api.notion.com/v1/pages/{page_id}",
                     headers=NOTION_HEADERS,
                     json={"properties": {"Ganancia": {"number": ganancia_correcta}}}
-                )
+                , timeout=15)
                 if patch.status_code == 200:
                     corregidos += 1
                     detalles.append({
@@ -2033,7 +2042,7 @@ async def cmd_top_clientes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payload = {"page_size": 100}
     
     # Paginar para obtener todos (opcional, pero 100 es bueno para empezar)
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         await msg.reply_text("Error al consultar Notion. Intenta de nuevo.")
         return

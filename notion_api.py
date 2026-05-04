@@ -57,7 +57,7 @@ def _sync_buscar_prendas_notion(termino: str) -> list:
             "filter": {"property": "Prenda", "title": {"contains": variante}},
             "page_size": 15,
         }
-        r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
         if r.status_code == 200:
             todas_pages.extend(r.json().get("results", []))
     return _parsear_resultados_notion(todas_pages)
@@ -80,7 +80,7 @@ def _sync_actualizar_prenda_notion(page_id: str, cambios: dict) -> bool:
         f"https://api.notion.com/v1/pages/{page_id}",
         headers=NOTION_HEADERS,
         json=payload
-    )
+    , timeout=15)
     if r.status_code != 200:
         print(f"ERROR NOTION actualizar {r.status_code}: {r.text}")
     return r.status_code == 200
@@ -111,7 +111,7 @@ def _sync_crear_prenda_notion(nombre, costo, precio, stock,
     payload = {"parent": {"database_id": NOTION_DATABASE_ID}, "properties": props}
     if foto_url:
         payload["cover"] = {"type": "external", "external": {"url": foto_url}}
-    r = requests.post("https://api.notion.com/v1/pages", headers=NOTION_HEADERS, json=payload)
+    r = requests.post("https://api.notion.com/v1/pages", headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         print(f"ERROR NOTION crear {r.status_code}: {r.text}")
     return r.status_code == 200
@@ -126,7 +126,7 @@ def _sync_subir_imagen(image_bytes: bytes):
     r = requests.post(
         "https://api.imgbb.com/1/upload",
         data={"key": IMGBB_API_KEY, "image": encoded}
-    )
+    , timeout=15)
     if r.status_code == 200:
         return r.json()["data"]["url"]
     print(f"ERROR ImgBB {r.status_code}: {r.text}")
@@ -138,7 +138,7 @@ async def obtener_foto_url(*args, **kwargs):
     return await asyncio.to_thread(functools.partial(_sync_obtener_foto_url, *args, **kwargs))
 
 def _sync_obtener_foto_url(page_id: str):
-    r = requests.get(f"https://api.notion.com/v1/pages/{page_id}", headers=NOTION_HEADERS)
+    r = requests.get(f"https://api.notion.com/v1/pages/{page_id}", headers=NOTION_HEADERS, timeout=15)
     if r.status_code != 200:
         return None
     props = r.json().get("properties", {})
@@ -223,7 +223,7 @@ def _sync_fetch_inventario_completo():
     pages   = []
     prendas = []
     while True:
-        r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
         if r.status_code != 200:
             return None
         data = r.json()
@@ -279,7 +279,7 @@ def _sync_historial_ventas_prenda(nombre_prenda: str) -> dict:
         "sorts": [{"property": "Fecha", "direction": "ascending"}],
         "page_size": 100
     }
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         return {}
     resultados = r.json().get("results", [])
@@ -339,7 +339,7 @@ def _sync_registrar_venta_notion(nombre_prenda, cantidad, precio_real, costo_u,
             "Cliente":       {"rich_text": [{"text": {"content": cliente}}]},
         }
     }
-    r = requests.post(url, headers=NOTION_HEADERS, json=data)
+    r = requests.post(url, headers=NOTION_HEADERS, json=data, timeout=15)
     if r.status_code not in (200, 201):
         logger.error(f"Error Notion Ventas {r.status_code}: {r.text[:300]}")
         return False
@@ -353,7 +353,7 @@ async def eliminar_venta_notion(*args, **kwargs):
 def _sync_eliminar_venta_notion(page_id: str) -> bool:
     """Elimina un registro de venta de Notion y restaura el stock de la prenda."""
     # Primero obtener datos de la venta para restaurar stock
-    r = requests.get(f"https://api.notion.com/v1/pages/{page_id}", headers=NOTION_HEADERS)
+    r = requests.get(f"https://api.notion.com/v1/pages/{page_id}", headers=NOTION_HEADERS, timeout=15)
     if r.status_code != 200:
         return False
     props    = r.json().get("properties", {})
@@ -365,7 +365,7 @@ def _sync_eliminar_venta_notion(page_id: str) -> bool:
         f"https://api.notion.com/v1/pages/{page_id}",
         headers=NOTION_HEADERS,
         json={"archived": True}
-    )
+    , timeout=15)
     if r2.status_code != 200:
         return False
     # Restaurar stock en inventario
@@ -390,7 +390,7 @@ def _sync_buscar_ventas_notion(termino: str) -> list:
         "sorts": [{"property": "Fecha", "direction": "descending"}],
         "page_size": 20,
     }
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         return []
     resultados = []
@@ -470,7 +470,7 @@ async def _texto_agotados(*args, **kwargs):
 def _sync__texto_agotados() -> str:
     url     = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
     payload = {"page_size": 50}
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         return f"Error al consultar Notion ({r.status_code})."
     resultados = r.json().get("results", [])
