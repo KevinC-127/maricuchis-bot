@@ -130,7 +130,7 @@ def main():
         ],
         states={
             VENTA_BUSCAR:    [MessageHandler(filters.TEXT & ~filters.COMMAND, venta_buscar_prenda)],
-            VENTA_CONFIRMAR: [CallbackQueryHandler(venta_confirmar_prenda, pattern="^sel_venta:|^cancelar$")],
+            VENTA_CONFIRMAR: [CallbackQueryHandler(venta_confirmar_prenda, pattern="^sel_venta:|^page_sel_venta:|^cancelar$")],
             VENTA_CANTIDAD:  [MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_cantidad)],
             VENTA_PRECIO:    [
                 CallbackQueryHandler(venta_recibir_precio, pattern="^precio_venta_"),
@@ -146,6 +146,7 @@ def main():
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^cliente_sin_nombre$"),
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^cliente_nueva$"),
                 CallbackQueryHandler(venta_recibir_cliente, pattern="^cliente_prev_"),
+                CallbackQueryHandler(venta_recibir_cliente, pattern="^page_cliente:"),
                 CallbackQueryHandler(venta_volver_fecha, pattern="^volver_fecha$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, venta_recibir_cliente_texto),
             ],
