@@ -88,16 +88,25 @@ async def venta_recibir_cantidad(update: Update, context: ContextTypes.DEFAULT_T
         return VENTA_CANTIDAD
         
     item["cantidad"] = cant
+    
+    # Generar 10 botones de descuento (1 a 10 soles)
+    filas_descuentos = []
+    current_row = []
+    for d in range(1, 11):
+        btn = InlineKeyboardButton(f"- S/{d}", callback_data=f"precio_venta_{prenda['precio'] - d:.0f}")
+        current_row.append(btn)
+        if len(current_row) == 5: # 5 botones por fila
+            filas_descuentos.append(current_row)
+            current_row = []
+    
     botones = [
         [InlineKeyboardButton(f"Sin descuento (S/ {prenda['precio']:.0f})", callback_data=f"precio_venta_{prenda['precio']:.0f}")],
-        [
-            InlineKeyboardButton(f"- S/5 (Queda S/{prenda['precio']-5:.0f})", callback_data=f"precio_venta_{prenda['precio']-5:.0f}"),
-            InlineKeyboardButton(f"- S/10 (Queda S/{prenda['precio']-10:.0f})", callback_data=f"precio_venta_{prenda['precio']-10:.0f}")
-        ],
+        *filas_descuentos,
         [InlineKeyboardButton("⬅️ Volver", callback_data="volver_cantidad")]
     ]
-    await update.message.reply_text("¿Aplicarás algún descuento a esta prenda en específico? (Elige un botón o escribe el precio unitario final):", reply_markup=InlineKeyboardMarkup(botones))
+    await update.message.reply_text("¿Aplicarás algún descuento a esta prenda? (Elige un botón o escribe el precio unitario final):", reply_markup=InlineKeyboardMarkup(botones))
     return VENTA_PRECIO
+
 
 async def venta_volver_cantidad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
