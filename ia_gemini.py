@@ -387,3 +387,33 @@ def teclado_lista_ventas(ventas: list, accion: str, pagina: int = 0, por_pagina:
         
     botones.append([InlineKeyboardButton("Cancelar", callback_data="cancelar")])
     return InlineKeyboardMarkup(botones)
+
+def teclado_lista_clientes(clientes: list, pagina: int = 0, por_pagina: int = 30) -> InlineKeyboardMarkup:
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    botones = []
+    inicio = pagina * por_pagina
+    fin = inicio + por_pagina
+    pagina_clientes = clientes[inicio:fin]
+    
+    for i in range(0, len(pagina_clientes), 2):
+        cb_data1 = f"cliente_prev_{pagina_clientes[i]}"[:64]
+        fila = [InlineKeyboardButton(pagina_clientes[i], callback_data=cb_data1)]
+        if i + 1 < len(pagina_clientes):
+            cb_data2 = f"cliente_prev_{pagina_clientes[i+1]}"[:64]
+            fila.append(InlineKeyboardButton(pagina_clientes[i+1], callback_data=cb_data2))
+        botones.append(fila)
+        
+    nav_botones = []
+    if pagina > 0:
+        nav_botones.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"page_cliente:{pagina-1}"))
+    if fin < len(clientes):
+        nav_botones.append(InlineKeyboardButton("Siguiente ➡️", callback_data=f"page_cliente:{pagina+1}"))
+        
+    if nav_botones:
+        botones.append(nav_botones)
+        
+    botones.append([InlineKeyboardButton("✏️ Nueva clienta", callback_data="cliente_nueva")])
+    botones.append([InlineKeyboardButton("Sin nombre", callback_data="cliente_sin_nombre")])
+    botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="volver_fecha")])
+    botones.append([InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")])
+    return InlineKeyboardMarkup(botones)

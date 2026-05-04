@@ -997,42 +997,34 @@ def _sync_obtener_clientes_previos() -> list:
         return []
     return sorted(clientes)
 
-async def venta_pedir_cliente(msg_obj, context):
-    clientes_prev = await obtener_clientes_previos()
-    
-    filas = []
-    # Limitar a los 30 clientes para no exceder el límite de 100 botones de Telegram
-    clientes_mostrar = clientes_prev[:30]
-    
-    for i in range(0, len(clientes_mostrar), 2):
-        # Truncar callback_data a 64 bytes para evitar error BadRequest
-        cb_data1 = f"cliente_prev_{clientes_mostrar[i]}"[:64]
-        fila = [InlineKeyboardButton(clientes_mostrar[i], callback_data=cb_data1)]
-        if i + 1 < len(clientes_mostrar):
-            cb_data2 = f"cliente_prev_{clientes_mostrar[i+1]}"[:64]
-            fila.append(InlineKeyboardButton(clientes_mostrar[i+1], callback_data=cb_data2))
-        filas.append(fila)
+async def venta_pedir_cliente(msg_obj, context, pagina=0):
+    clientes_prev = context.user_data.get("clientes_previos")
+    if not clientes_prev:
+        clientes_prev = await obtener_clientes_previos()
+        context.user_data["clientes_previos"] = clientes_prev
         
-    # Botones fijos al final
-    filas.append([InlineKeyboardButton("✏️ Nueva clienta", callback_data="cliente_nueva")])
-    filas.append([InlineKeyboardButton("Sin nombre", callback_data="cliente_sin_nombre")])
-    filas.append([InlineKeyboardButton("⬅️ Volver", callback_data="volver_fecha")])
-    filas.append([InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")])
-    
+    teclado = teclado_lista_clientes(clientes_prev, pagina)
     texto = "👤 *¿A quién le vendiste?*"
     if clientes_prev:
-        texto += f"\n_{len(clientes_prev)} clientas registradas. Elige o agrega una nueva:_"
-        if len(clientes_prev) > 30:
-            texto += "\n(Mostrando solo las primeras 30 para evitar saturar el menú)"
-            
-    teclado = InlineKeyboardMarkup(filas)
-    await msg_obj.reply_text(texto, reply_markup=teclado, parse_mode="Markdown")
+        texto += f"\\n_{len(clientes_prev)} clientas registradas. Elige o agrega una nueva:_"
+    
+    if hasattr(msg_obj, "edit_text"):
+        try:
+            await msg_obj.edit_text(texto, reply_markup=teclado, parse_mode="Markdown")
+        except Exception:
+            await msg_obj.reply_text(texto, reply_markup=teclado, parse_mode="Markdown")
+    else:
+        await msg_obj.reply_text(texto, reply_markup=teclado, parse_mode="Markdown")
 
 async def venta_recibir_cliente(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if query:
         await query.answer()
         data = query.data
+        if data.startswith("page_cliente:"):
+            pagina = int(data.split(":")[1])
+            await venta_pedir_cliente(query.message, context, pagina=pagina)
+            return VENTA_CLIENTE
         if data == "cliente_sin_nombre":
             context.user_data["venta_cliente"] = ""
             await _finalizar_venta(update, context)
