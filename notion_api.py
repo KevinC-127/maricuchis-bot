@@ -62,6 +62,11 @@ def _sync_buscar_prendas_notion(termino: str) -> list:
             todas_pages.extend(r.json().get("results", []))
     return _parsear_resultados_notion(todas_pages)
 
+async def actualizar_stock_notion(page_id: str, nuevo_stock: int) -> bool:
+    import asyncio, functools
+    return await asyncio.to_thread(_sync_actualizar_prenda_notion, page_id, {"Stock": {"number": nuevo_stock}})
+
+
 async def actualizar_prenda_notion(*args, **kwargs):
     import asyncio
     import functools
@@ -313,17 +318,29 @@ def _sync_historial_ventas_prenda(nombre_prenda: str) -> dict:
         "num_transacciones": len(ventas),
     }
 
-async def registrar_venta_notion(*args, **kwargs):
+async def crear_venta_notion(*args, **kwargs):
     import asyncio
     import functools
-    return await asyncio.to_thread(functools.partial(_sync_registrar_venta_notion, *args, **kwargs))
+    return await asyncio.to_thread(functools.partial(_sync_crear_venta_notion, *args, **kwargs))
 
-def _sync_registrar_venta_notion(nombre_prenda, cantidad, precio_real, costo_u,
-                           ganancia, cliente="", fecha_venta=None, descuento=0.0) -> bool:
+def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia, 
+                            cliente="", fecha_iso=None, descuento=0.0, estado="Completado") -> bool:
     if not NOTION_VENTAS_ID:
         return True
+    
+    # Obtener nombre de la prenda (para el título de la fila)
+    r_prenda = requests.get(f"https://api.notion.com/v1/pages/{prenda_id}", headers=NOTION_HEADERS, timeout=15)
+    nombre_prenda = "Prenda"
+    costo_u = 0
+    if r_prenda.status_code == 200:
+        props_p = r_prenda.json().get("properties", {})
+        tit = props_p.get("Prenda", {}).get("title", [])
+        if tit: nombre_prenda = tit[0]["text"]["content"]
+        costo_u = props_p.get("Costo Unitario", {}).get("number", 0) or 0
+
     from datetime import datetime, timezone
-    fecha = fecha_venta or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fecha = fecha_iso or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
     url  = "https://api.notion.com/v1/pages"
     data = {
         "parent": {"database_id": NOTION_VENTAS_ID},
@@ -332,11 +349,13 @@ def _sync_registrar_venta_notion(nombre_prenda, cantidad, precio_real, costo_u,
             "Fecha":         {"date": {"start": fecha}},
             "Prenda":        {"rich_text": [{"text": {"content": nombre_prenda}}]},
             "Cantidad":      {"number": cantidad},
-            "Precio real":   {"number": precio_real},
+            "Precio real":   {"number": precio_final},
             "Costo unitario":{"number": round(costo_u, 2)},
             "Descuento":     {"number": round(descuento, 2)},
             "Ganancia":      {"number": round(ganancia, 2)},
             "Cliente":       {"rich_text": [{"text": {"content": cliente}}]},
+            "Estado":        {"select": {"name": estado}},
+            "Tipo":          {"select": {"name": "Venta"}}
         }
     }
     r = requests.post(url, headers=NOTION_HEADERS, json=data, timeout=15)
@@ -344,6 +363,25 @@ def _sync_registrar_venta_notion(nombre_prenda, cantidad, precio_real, costo_u,
         logger.error(f"Error Notion Ventas {r.status_code}: {r.text[:300]}")
         return False
     return True
+
+async def obtener_clientes_previos():
+    import asyncio, functools
+    return await asyncio.to_thread(_sync_obtener_clientes_previos)
+
+def _sync_obtener_clientes_previos() -> list:
+    if not NOTION_VENTAS_ID: return []
+    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    payload = {"page_size": 100}
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+    if r.status_code != 200: return []
+    
+    clientes = set()
+    for res in r.json().get("results", []):
+        c_rt = res["properties"].get("Cliente", {}).get("rich_text", [])
+        if c_rt:
+            clientes.add(c_rt[0]["text"]["content"].strip())
+    return sorted(list(clientes))
+
 
 async def eliminar_venta_notion(*args, **kwargs):
     import asyncio
