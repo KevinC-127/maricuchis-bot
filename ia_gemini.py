@@ -271,11 +271,25 @@ async def ejecutar_accion_ia(accion_dict: dict, update: Update) -> str:
 # ============================================================
 # HELPERS — INTERFAZ
 # ============================================================
-def teclado_lista_prendas(prendas: list, accion: str) -> InlineKeyboardMarkup:
+def teclado_lista_prendas(prendas: list, accion: str, pagina: int = 0, por_pagina: int = 10) -> InlineKeyboardMarkup:
     botones = []
-    for p in prendas:
+    inicio = pagina * por_pagina
+    fin = inicio + por_pagina
+    pagina_prendas = prendas[inicio:fin]
+    
+    for p in pagina_prendas:
         label = f"{p['nombre']} (stock: {p['stock']})"
         botones.append([InlineKeyboardButton(label, callback_data=f"{accion}:{p['id']}")])
+        
+    nav_botones = []
+    if pagina > 0:
+        nav_botones.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"page_{accion}:{pagina-1}"))
+    if fin < len(prendas):
+        nav_botones.append(InlineKeyboardButton("Siguiente ➡️", callback_data=f"page_{accion}:{pagina+1}"))
+        
+    if nav_botones:
+        botones.append(nav_botones)
+        
     botones.append([InlineKeyboardButton("Cancelar", callback_data="cancelar")])
     return InlineKeyboardMarkup(botones)
 
@@ -352,3 +366,24 @@ def _texto_ayuda() -> str:
         "/ayuda    - Mostrar esta guia"
     )
 
+
+def teclado_lista_ventas(ventas: list, accion: str, pagina: int = 0, por_pagina: int = 10) -> InlineKeyboardMarkup:
+    botones = []
+    inicio = pagina * por_pagina
+    fin = inicio + por_pagina
+    pagina_ventas = ventas[inicio:fin]
+    
+    for v in pagina_ventas:
+        botones.append([InlineKeyboardButton(v['label'], callback_data=f"{accion}:{v['id']}")])
+        
+    nav_botones = []
+    if pagina > 0:
+        nav_botones.append(InlineKeyboardButton("⬅️ Anterior", callback_data=f"page_{accion}:{pagina-1}"))
+    if fin < len(ventas):
+        nav_botones.append(InlineKeyboardButton("Siguiente ➡️", callback_data=f"page_{accion}:{pagina+1}"))
+        
+    if nav_botones:
+        botones.append(nav_botones)
+        
+    botones.append([InlineKeyboardButton("Cancelar", callback_data="cancelar")])
+    return InlineKeyboardMarkup(botones)

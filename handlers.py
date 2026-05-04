@@ -756,9 +756,6 @@ async def adjfoto_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TY
     if not prendas:
         await update.message.reply_text(f"No encontre prendas con '{termino}'. Intenta con otro nombre.")
         return ADJFOTO_BUSCAR
-    if len(prendas) > 10:
-        await update.message.reply_text(f"Mas de 10 resultados para '{termino}'. Se más específica.")
-        return ADJFOTO_BUSCAR
     if len(prendas) == 1:
         context.user_data["prenda_adj"] = prendas[0]
         await update.message.reply_text(f"Encontre: {prendas[0]['nombre']}\n\nAhora enviame la foto.")
@@ -773,6 +770,14 @@ async def adjfoto_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TY
 async def adjfoto_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data.startswith("page_sel_adjfoto:"):
+        pagina = int(query.data.split(":")[1])
+        prendas_dict = context.user_data.get("prendas_encontradas", {})
+        prendas_list = list(prendas_dict.values())
+        await query.edit_message_reply_markup(
+            reply_markup=teclado_lista_prendas(prendas_list, "sel_adjfoto", pagina)
+        )
+        return ADJFOTO_CONFIRMAR
     if query.data == "cancelar":
         await query.edit_message_text("Operacion cancelada.")
         context.user_data.clear()
@@ -834,9 +839,6 @@ async def venta_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE
         nombres = "\n".join(f"- {p['nombre']}" for p in agotadas)
         await update.message.reply_text(f"Todas las prendas encontradas están agotadas:\n{nombres}")
         return VENTA_BUSCAR
-    if len(disponibles) > 10:
-        await update.message.reply_text("Mas de 10 resultados. Se más específica.")
-        return VENTA_BUSCAR
     if len(disponibles) == 1:
         context.user_data["prenda_venta"] = disponibles[0]
         p = disponibles[0]
@@ -854,6 +856,14 @@ async def venta_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def venta_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data.startswith("page_sel_venta:"):
+        pagina = int(query.data.split(":")[1])
+        prendas_dict = context.user_data.get("prendas_encontradas", {})
+        prendas_list = list(prendas_dict.values())
+        await query.edit_message_reply_markup(
+            reply_markup=teclado_lista_prendas(prendas_list, "sel_venta", pagina)
+        )
+        return VENTA_CONFIRMAR
     if query.data == "cancelar":
         await query.edit_message_text("Operacion cancelada.")
         context.user_data.clear()
@@ -1213,6 +1223,14 @@ async def stock_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     await query.answer()
     try:
+        if query.data.startswith("page_sel_stock:"):
+            pagina = int(query.data.split(":")[1])
+            prendas_dict = context.user_data.get("prendas_encontradas", {})
+            prendas_list = list(prendas_dict.values())
+            await query.edit_message_reply_markup(
+                reply_markup=teclado_lista_prendas(prendas_list, "sel_stock", pagina)
+            )
+            return STOCK_CONFIRMAR
         if query.data == "cancelar":
             await query.edit_message_text("Cancelado.")
             context.user_data.clear()
@@ -1261,19 +1279,23 @@ async def eliminar_venta_buscar(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("No encontré ventas con ese nombre.")
         return ELIMINAR_VENTA_BUSCAR
     context.user_data["ventas_encontradas"] = {v["id"]: v for v in ventas}
-    botones = []
-    for v in ventas[:10]:
-        botones.append([InlineKeyboardButton(v["label"], callback_data=f"sel_elimventa:{v['id']}")])
-    botones.append([InlineKeyboardButton("Cancelar", callback_data="cancelar")])
     await update.message.reply_text(
-        f"Encontré {len(ventas[:10])} ventas. ¿Cuál quieres eliminar?",
-        reply_markup=InlineKeyboardMarkup(botones)
+        f"Encontré {len(ventas)} ventas. ¿Cuál quieres eliminar?",
+        reply_markup=teclado_lista_ventas(ventas, "sel_elimventa")
     )
     return ELIMINAR_VENTA_CONFIRMAR
 
 async def eliminar_venta_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data.startswith("page_sel_elimventa:"):
+        pagina = int(query.data.split(":")[1])
+        ventas_dict = context.user_data.get("ventas_encontradas", {})
+        ventas_list = list(ventas_dict.values())
+        await query.edit_message_reply_markup(
+            reply_markup=teclado_lista_ventas(ventas_list, "sel_elimventa", pagina)
+        )
+        return ELIMINAR_VENTA_CONFIRMAR
     if query.data == "cancelar":
         await query.edit_message_text("Operación cancelada.")
         context.user_data.clear()
@@ -1337,6 +1359,14 @@ async def editar_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def editar_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data.startswith("page_sel_editar:"):
+        pagina = int(query.data.split(":")[1])
+        prendas_dict = context.user_data.get("prendas_encontradas", {})
+        prendas_list = list(prendas_dict.values())
+        await query.edit_message_reply_markup(
+            reply_markup=teclado_lista_prendas(prendas_list, "sel_editar", pagina)
+        )
+        return EDITAR_CONFIRMAR
     if query.data == "cancelar":
         await query.edit_message_text("Cancelado.")
         context.user_data.clear()
@@ -1490,6 +1520,14 @@ async def eliminar_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def eliminar_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data.startswith("page_sel_eliminar:"):
+        pagina = int(query.data.split(":")[1])
+        prendas_dict = context.user_data.get("prendas_encontradas", {})
+        prendas_list = list(prendas_dict.values())
+        await query.edit_message_reply_markup(
+            reply_markup=teclado_lista_prendas(prendas_list, "sel_eliminar", pagina)
+        )
+        return ELIMINAR_CONFIRMAR
     if query.data == "cancelar":
         await query.edit_message_text("Cancelado.")
         context.user_data.clear()
@@ -1556,6 +1594,14 @@ async def verfoto_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def verfoto_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data.startswith("page_sel_foto:"):
+        pagina = int(query.data.split(":")[1])
+        prendas_dict = context.user_data.get("prendas_encontradas", {})
+        prendas_list = list(prendas_dict.values())
+        await query.edit_message_reply_markup(
+            reply_markup=teclado_lista_prendas(prendas_list, "sel_foto", pagina)
+        )
+        return FOTO_CONFIRMAR
     if query.data == "cancelar":
         await query.edit_message_text("Cancelado.")
         context.user_data.clear()
