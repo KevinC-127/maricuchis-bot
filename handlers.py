@@ -1,5 +1,6 @@
 from config import *
 from notion_api import *
+from notion_api import _formato_stock, _texto_agotados
 from ia_gemini import *
 # ============================================================
 # HANDLERS — COMANDOS GENERALES
