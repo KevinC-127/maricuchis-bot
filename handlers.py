@@ -23,10 +23,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Menu principal:", reply_markup=teclado_menu_principal())
+    await _reply(update, "Menu principal:", reply_markup=teclado_menu_principal())
 
 async def cmd_ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(_texto_ayuda())
+    await _reply(update, _texto_ayuda())
 
 async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tenia_sesion_ia = bool(context.user_data.get("historial_ia"))
