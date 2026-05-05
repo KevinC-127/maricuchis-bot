@@ -269,6 +269,10 @@ async def manejar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_comparar(update, context)
     elif accion == "menu_inicio":
         await cmd_menu(update, context)
+    elif accion == "menu_ventas_sub":
+        await query.message.reply_text("💰 *Ventas — ¿Qué deseas hacer?*", reply_markup=teclado_submenu_ventas(), parse_mode="Markdown")
+    elif accion == "menu_inventario_sub":
+        await query.message.reply_text("📋 *Inventario — ¿Qué deseas ver?*", reply_markup=teclado_submenu_inventario(), parse_mode="Markdown")
     elif accion == "menu_nueva_menu":
         await cmd_nueva_prenda_menu(update, context)
     elif accion == "menu_nueva_guiado":
@@ -281,6 +285,39 @@ async def manejar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_ver_foto_directo(update, context)
     elif accion == "menu_ayuda":
         await query.message.reply_text(_texto_ayuda())
+    elif accion == "menu_actualizar_pendiente":
+        await cmd_actualizar_pendiente(update, context)
+
+# ============================================================
+# HANDLER — ACTUALIZAR PENDIENTE
+# ============================================================
+PENDIENTE_CONFIRMAR = 70
+
+async def cmd_actualizar_pendiente(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Muestra ventas pendientes para marcarlas como completadas."""
+    await _reply(update, "🔄 Buscando ventas pendientes...")
+    pendientes = await fetch_ventas_pendientes()
+    if not pendientes:
+        await _reply(update, "✅ No hay ventas pendientes. ¡Todo está al día!")
+        return ConversationHandler.END
+    botones = []
+    for v in pendientes:
+        botones.append([InlineKeyboardButton(v["label"], callback_data=f"pend_{v['id']}")])
+    botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="menu_inicio")])
+    await _reply(update, f"🔄 *Ventas pendientes ({len(pendientes)})*\n\nElige una para marcarla como *Completado*:",
+                 reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
+    return PENDIENTE_CONFIRMAR
+
+async def pendiente_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    page_id = query.data.replace("pend_", "")
+    exito = await actualizar_estado_venta(page_id, "Completado")
+    if exito:
+        await query.edit_message_text("✅ *Venta actualizada a Completado*", parse_mode="Markdown")
+    else:
+        await query.edit_message_text("❌ Error al actualizar la venta.")
+    return ConversationHandler.END
 
 # ============================================================
 # HANDLER — FOTO NUEVA CON CAPTION
@@ -2141,6 +2178,6 @@ async def cmd_nueva_prenda_menu(update: Update, context: ContextTypes.DEFAULT_TY
     teclado = teclado_menu_nueva_prenda()
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text("📸 *Nueva prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")
+        await update.callback_query.edit_message_text("📸 *Registrar prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")
     else:
-        await update.message.reply_text("📸 *Nueva prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")
+        await update.message.reply_text("📸 *Registrar prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")

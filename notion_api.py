@@ -450,6 +450,59 @@ def _sync_buscar_ventas_notion(termino: str) -> list:
             })
     return resultados
 
+async def fetch_ventas_pendientes(*args, **kwargs):
+    import asyncio, functools
+    return await asyncio.to_thread(functools.partial(_sync_fetch_ventas_pendientes, *args, **kwargs))
+
+def _sync_fetch_ventas_pendientes() -> list:
+    """Busca ventas con Estado = Pendiente."""
+    if not NOTION_VENTAS_ID:
+        return []
+    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    payload = {
+        "filter": {"property": "Estado", "select": {"equals": "Pendiente"}},
+        "sorts": [{"property": "Fecha", "direction": "descending"}],
+        "page_size": 50,
+    }
+    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+    if r.status_code != 200:
+        return []
+    resultados = []
+    for page in r.json().get("results", []):
+        props    = page["properties"]
+        prenda_n = props.get("Prenda", {}).get("rich_text", [])
+        nombre   = prenda_n[0]["text"]["content"] if prenda_n else ""
+        cantidad = props.get("Cantidad", {}).get("number", 0) or 0
+        precio   = props.get("Precio real", {}).get("number", 0) or 0
+        fecha_d  = props.get("Fecha", {}).get("date") or {}
+        fecha    = fecha_d.get("start", "")
+        cliente_rt = props.get("Cliente", {}).get("rich_text", [])
+        cliente    = cliente_rt[0]["text"]["content"] if cliente_rt else ""
+        resultados.append({
+            "id":       page["id"],
+            "nombre":   nombre,
+            "cantidad": cantidad,
+            "precio":   precio,
+            "fecha":    fecha,
+            "cliente":  cliente,
+            "label":    f"{nombre} | {cantidad}ud x S/{precio:.0f} | {fecha}" + (f" | {cliente}" if cliente else ""),
+        })
+    return resultados
+
+async def actualizar_estado_venta(*args, **kwargs):
+    import asyncio, functools
+    return await asyncio.to_thread(functools.partial(_sync_actualizar_estado_venta, *args, **kwargs))
+
+def _sync_actualizar_estado_venta(page_id: str, nuevo_estado: str = "Completado") -> bool:
+    """Actualiza el campo Estado de una venta en Notion."""
+    url = f"https://api.notion.com/v1/pages/{page_id}"
+    data = {"properties": {"Estado": {"select": {"name": nuevo_estado}}}}
+    r = requests.patch(url, headers=NOTION_HEADERS, json=data, timeout=15)
+    if r.status_code != 200:
+        logger.error(f"Error actualizando estado venta {r.status_code}: {r.text[:300]}")
+        return False
+    return True
+
 async def _formato_stock(prenda: dict) -> str:
     estado      = calcular_estado(prenda["stock"])
     stock_ini   = prenda.get("stock_inicial", 0) or prenda["stock"]

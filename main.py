@@ -324,6 +324,22 @@ def main():
     )
     app.add_handler(eliminar_venta_handler)
 
+    # ConversationHandler — Actualizar Pendiente
+    pendiente_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cmd_actualizar_pendiente, pattern="^menu_actualizar_pendiente$"),
+        ],
+        states={
+            PENDIENTE_CONFIRMAR: [CallbackQueryHandler(pendiente_confirmar, pattern="^pend_")],
+        },
+        fallbacks=[
+            CommandHandler("cancelar", cmd_cancelar),
+            CallbackQueryHandler(fallback_menu_inicio, pattern="^menu_inicio$"),
+        ],
+        per_message=False,
+    )
+    app.add_handler(pendiente_handler)
+
     # Registrar middleware de seguridad global
     app.add_handler(TypeHandler(Update, auth_middleware), group=-1)
 

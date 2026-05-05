@@ -296,41 +296,48 @@ def teclado_lista_prendas(prendas: list, accion: str, pagina: int = 0, por_pagin
 def teclado_menu_principal() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("📸 Nueva prenda",    callback_data="menu_nueva_menu"),
-            InlineKeyboardButton("💰 Registrar venta", callback_data="menu_venta"),
+            InlineKeyboardButton("📸 Registrar prenda", callback_data="menu_nueva_menu"),
+            InlineKeyboardButton("💰 Ventas",           callback_data="menu_ventas_sub"),
         ],
         [
-            InlineKeyboardButton("🔍 Consultar prenda",callback_data="menu_stock"),
-            InlineKeyboardButton("🔴 Ver agotados",    callback_data="menu_agotados"),
+            InlineKeyboardButton("🔍 Consultar prenda", callback_data="menu_stock"),
+            InlineKeyboardButton("📋 Inventario",        callback_data="menu_inventario_sub"),
         ],
         [
-            InlineKeyboardButton("✏️ Actualizar / Eliminar prenda", callback_data="menu_editar"),
+            InlineKeyboardButton("💰 Ganancias",         callback_data="menu_ganancias"),
+            InlineKeyboardButton("💸 Gastos",            callback_data="menu_gasto"),
         ],
         [
-            InlineKeyboardButton("🗑️ Eliminar venta", callback_data="menu_eliminar_venta"),
+            InlineKeyboardButton("⚖️ Comparar prendas", callback_data="menu_comparar"),
+            InlineKeyboardButton("📊 Gráfico stock",     callback_data="menu_graficostock"),
         ],
-        [
-            InlineKeyboardButton("📋 Ver inventario",  callback_data="menu_inventario"),
-            InlineKeyboardButton("📊 Gráfico stock",      callback_data="menu_graficostock"),
-        ],
-        [
-            InlineKeyboardButton("💰 Ganancias",          callback_data="menu_ganancias"),
-            InlineKeyboardButton("💸 Gastos",             callback_data="menu_gasto"),
-        ],
-        [
-            InlineKeyboardButton("🔄 Devolución",         callback_data="menu_devolucion"),
-            InlineKeyboardButton("⚖️ Comparar prendas",   callback_data="menu_comparar"),
-        ],
-        [InlineKeyboardButton("🤖 Preguntarle a la IA",   callback_data="menu_ia")],
-        [InlineKeyboardButton("❓ Ayuda",                  callback_data="menu_ayuda")],
+        [InlineKeyboardButton("🤖 Preguntarle a la IA",  callback_data="menu_ia")],
+        [InlineKeyboardButton("❓ Ayuda",                 callback_data="menu_ayuda")],
+    ])
+
+def teclado_submenu_ventas() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💰 Registrar venta",       callback_data="menu_venta")],
+        [InlineKeyboardButton("🔄 Actualizar pendiente",  callback_data="menu_actualizar_pendiente")],
+        [InlineKeyboardButton("↩️ Devolución",            callback_data="menu_devolucion")],
+        [InlineKeyboardButton("🗑️ Eliminar venta",       callback_data="menu_eliminar_venta")],
+        [InlineKeyboardButton("⬅️ Volver",               callback_data="menu_inicio")],
+    ])
+
+def teclado_submenu_inventario() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📋 Ver inventario",       callback_data="menu_inventario")],
+        [InlineKeyboardButton("🔴 Ver agotados",         callback_data="menu_agotados")],
+        [InlineKeyboardButton("⬅️ Volver",               callback_data="menu_inicio")],
     ])
 
 def teclado_menu_nueva_prenda() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📝 Sin foto",            callback_data="menu_sinfoto")],
-        [InlineKeyboardButton("🖼️ Actualizar foto",    callback_data="menu_adjfoto")],
-        [InlineKeyboardButton("✍️ Escribir nueva prenda", callback_data="menu_nueva_guiado")],
-        [InlineKeyboardButton("⬅️ Volver",              callback_data="menu_inicio")]
+        [InlineKeyboardButton("📝 Sin foto",               callback_data="menu_sinfoto")],
+        [InlineKeyboardButton("🖼️ Actualizar foto",       callback_data="menu_adjfoto")],
+        [InlineKeyboardButton("✍️ Escribir nueva prenda",  callback_data="menu_nueva_guiado")],
+        [InlineKeyboardButton("✏️ Actualizar / Eliminar prenda", callback_data="menu_editar")],
+        [InlineKeyboardButton("⬅️ Volver",                 callback_data="menu_inicio")],
     ])
 
 def _texto_ayuda() -> str:
