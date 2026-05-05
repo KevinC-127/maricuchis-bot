@@ -285,7 +285,7 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Descuento total de la fila = (descuento individual * cantidad) + parte del descuento global
         descuento_total_fila = (descuento_unitario * c) + desc_por_item
         
-        costo_u = p["costo"] / p["stock"] if p["stock"] > 0 else 0
+        costo_u = p["costo_u"]
         ganancia = (pf * c) - (costo_u * c) - desc_por_item
         
         # En Notion Ventas DB (requiere que la DB soporte Estado)
