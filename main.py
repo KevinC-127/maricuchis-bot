@@ -1,5 +1,6 @@
 from config import *
 from handlers import *
+from dashboard import start_web_server
 from handlers_venta import (
     cmd_vendi, venta_buscar_prenda, venta_confirmar_prenda, venta_recibir_cantidad,
     venta_recibir_precio, venta_recibir_precio_manual, venta_volver_cantidad,
@@ -32,8 +33,12 @@ async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text("⛔ No estás autorizado para usar este bot.")
             raise ApplicationHandlerStop
 
+async def _post_init(application):
+    """Arranca el dashboard web en el mismo event loop que el bot."""
+    await start_web_server()
+
 def main():
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(_post_init).build()
 
     # ConversationHandler — IA
     ia_handler = ConversationHandler(
