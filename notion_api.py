@@ -354,6 +354,7 @@ def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia,
             "Descuento":     {"number": round(descuento, 2)},
             "Ganancia":      {"number": round(ganancia, 2)},
             "Cliente":       {"rich_text": [{"text": {"content": cliente}}]},
+            "Estado":        {"select": {"name": estado}},
         }
     }
     r = requests.post(url, headers=NOTION_HEADERS, json=data, timeout=15)
