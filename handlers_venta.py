@@ -204,14 +204,16 @@ async def venta_pedir_fecha(msg_obj, context):
     fechas = []
     etiquetas = ["📅 Hoy", "⏪ Ayer", "⏪ Hace 2 días", "⏪ Hace 3 días", "⏪ Hace 4 días"]
     for i, etq in enumerate(etiquetas):
-        dia = (ahora - timedelta(days=i)).strftime("%Y-%m-%d")
-        fechas.append(InlineKeyboardButton(f"{etq} ({dia})", callback_data=f"fecha_venta_{dia}"))
+        dia_obj = ahora - timedelta(days=i)
+        dia_iso = dia_obj.strftime("%Y-%m-%d")
+        dia_visual = dia_obj.strftime("%d-%m-%Y")
+        fechas.append(InlineKeyboardButton(f"{etq} ({dia_visual})", callback_data=f"fecha_venta_{dia_iso}"))
     botones = [
         [fechas[0]],
         [fechas[1], fechas[2]],
         [fechas[3], fechas[4]],
     ]
-    texto = "📅 *¿Qué día fue la venta?*\nElige una opción o escribe la fecha (AAAA-MM-DD):"
+    texto = "📅 *¿Qué día fue la venta?*\nElige una opción o escribe la fecha (DD-MM-AAAA):"
     try:
         await msg_obj.edit_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     except Exception:
@@ -225,7 +227,13 @@ async def venta_recibir_fecha(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data["venta_fecha"] = query.data.replace("fecha_venta_", "")
         return await venta_pedir_descuento(query.message, context)
     else:
-        context.user_data["venta_fecha"] = update.message.text.strip()
+        texto = update.message.text.strip()
+        # Convertir DD-MM-AAAA a AAAA-MM-DD para Notion
+        import re
+        if re.match(r"^\d{2}-\d{2}-\d{4}$", texto):
+            partes = texto.split("-")
+            texto = f"{partes[2]}-{partes[1]}-{partes[0]}"
+        context.user_data["venta_fecha"] = texto
         return await venta_pedir_descuento(update.message, context)
 
 async def venta_pedir_descuento(msg_obj, context):
