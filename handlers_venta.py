@@ -199,9 +199,19 @@ async def venta_recibir_cliente(update: Update, context: ContextTypes.DEFAULT_TY
         return await venta_pedir_fecha(update.message, context)
 
 async def venta_pedir_fecha(msg_obj, context):
-    hoy = datetime.now(timezone_lima).strftime("%Y-%m-%d")
-    botones = [[InlineKeyboardButton(f"Hoy ({hoy})", callback_data=f"fecha_venta_{hoy}")]]
-    texto = "📅 *¿Qué día fue la venta?* (Elige hoy o escribe AAAA-MM-DD)"
+    from datetime import timedelta
+    ahora = datetime.now(timezone_lima)
+    fechas = []
+    etiquetas = ["📅 Hoy", "⏪ Ayer", "⏪ Hace 2 días", "⏪ Hace 3 días", "⏪ Hace 4 días"]
+    for i, etq in enumerate(etiquetas):
+        dia = (ahora - timedelta(days=i)).strftime("%Y-%m-%d")
+        fechas.append(InlineKeyboardButton(f"{etq} ({dia})", callback_data=f"fecha_venta_{dia}"))
+    botones = [
+        [fechas[0]],
+        [fechas[1], fechas[2]],
+        [fechas[3], fechas[4]],
+    ]
+    texto = "📅 *¿Qué día fue la venta?*\nElige una opción o escribe la fecha (AAAA-MM-DD):"
     try:
         await msg_obj.edit_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     except Exception:
