@@ -146,9 +146,9 @@ async def _preguntar_mas_prendas(msg_obj, context):
         [InlineKeyboardButton("➕ Agregar otra prenda", callback_data="mas_si")],
         [InlineKeyboardButton("✅ Finalizar y Cobrar", callback_data="mas_no")]
     ]
-    if hasattr(msg_obj, "edit_text"):
+    try:
         await msg_obj.edit_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
-    else:
+    except Exception:
         await msg_obj.reply_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     return VENTA_MAS
 
@@ -202,9 +202,9 @@ async def venta_pedir_fecha(msg_obj, context):
     hoy = datetime.now(timezone_lima).strftime("%Y-%m-%d")
     botones = [[InlineKeyboardButton(f"Hoy ({hoy})", callback_data=f"fecha_venta_{hoy}")]]
     texto = "📅 *¿Qué día fue la venta?* (Elige hoy o escribe AAAA-MM-DD)"
-    if hasattr(msg_obj, "edit_text"):
+    try:
         await msg_obj.edit_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
-    else:
+    except Exception:
         await msg_obj.reply_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     return VENTA_FECHA
 
@@ -225,9 +225,9 @@ async def venta_pedir_descuento(msg_obj, context):
         [InlineKeyboardButton("S/ 5", callback_data="descuento_5"), InlineKeyboardButton("S/ 10", callback_data="descuento_10")]
     ]
     texto = f"💸 *Descuento Global*\nTotal del carrito: S/ {total:.2f}\n¿Hiciste algún descuento adicional al total? (Escribe el monto o elige):"
-    if hasattr(msg_obj, "edit_text"):
+    try:
         await msg_obj.edit_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
-    else:
+    except Exception:
         await msg_obj.reply_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     return VENTA_DESCUENTO
 
@@ -251,9 +251,9 @@ async def venta_pedir_pago(msg_obj, context):
         [InlineKeyboardButton("⏳ Pendiente (Separado)", callback_data="pago_Pendiente")]
     ]
     texto = "💳 *Estado del Pago*\n¿El cliente ya te pagó todo o es un pedido/separación pendiente?"
-    if hasattr(msg_obj, "edit_text"):
+    try:
         await msg_obj.edit_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
-    else:
+    except Exception:
         await msg_obj.reply_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     return VENTA_PAGO
 
