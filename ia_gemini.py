@@ -309,7 +309,6 @@ def teclado_menu_principal() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("⚖️ Comparar prendas", callback_data="menu_comparar"),
-            InlineKeyboardButton("📊 Gráfico stock",     callback_data="menu_graficostock"),
         ],
         [InlineKeyboardButton("🤖 Preguntarle a la IA",  callback_data="menu_ia")],
         [InlineKeyboardButton("❓ Ayuda",                 callback_data="menu_ayuda")],

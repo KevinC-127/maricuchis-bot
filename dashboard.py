@@ -18,6 +18,7 @@ def _sync_get_stats() -> dict:
     # ── INVENTARIO ──────────────────────────────────────────
     total_inversion = 0
     total_stock = 0
+    stock_stats = {"Disponible": 0, "Stock bajo": 0, "Agotado": 0}
     top_inventario = []
     inv_url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
     cursor = None
@@ -36,6 +37,12 @@ def _sync_get_stats() -> dict:
             stock = props.get("Stock", {}).get("number", 0) or 0
             costo_u = props.get("Costo Unitario", {}).get("number", 0) or 0
             precio = props.get("Precio", {}).get("number", 0) or 0
+            
+            # Stock Status
+            if stock == 0: stock_stats["Agotado"] += 1
+            elif stock <= 3: stock_stats["Stock bajo"] += 1
+            else: stock_stats["Disponible"] += 1
+
             total_stock += stock
             total_inversion += stock * costo_u
             top_inventario.append({
@@ -53,6 +60,10 @@ def _sync_get_stats() -> dict:
     total_precio_venta = 0
     total_precio_costo = 0
     ventas_por_mes = {}
+    ventas_por_dia = {}
+    from datetime import datetime, timedelta
+    fecha_limite = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+
     if NOTION_VENTAS_ID:
         ven_url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
         cursor = None
@@ -70,14 +81,23 @@ def _sync_get_stats() -> dict:
                 precio_real = props.get("Precio real", {}).get("number", 0) or 0
                 costo_u = props.get("Costo unitario", {}).get("number", 0) or 0
                 fecha_d = (props.get("Fecha", {}).get("date") or {})
-                mes = fecha_d.get("start", "")[:7]
+                full_fecha = fecha_d.get("start", "")
+                mes = full_fecha[:7]
+                
                 total_precio_venta += precio_real * cantidad
                 total_precio_costo += costo_u * cantidad
+                
                 if mes:
                     if mes not in ventas_por_mes:
                         ventas_por_mes[mes] = {"ingresos": 0, "costo": 0}
                     ventas_por_mes[mes]["ingresos"] += round(precio_real * cantidad, 2)
                     ventas_por_mes[mes]["costo"] += round(costo_u * cantidad, 2)
+                
+                if full_fecha and full_fecha >= fecha_limite:
+                    if full_fecha not in ventas_por_dia:
+                        ventas_por_dia[full_fecha] = 0
+                    ventas_por_dia[full_fecha] += round(precio_real * cantidad, 2)
+
             if not data.get("has_more"):
                 break
             cursor = data.get("next_cursor")
@@ -102,6 +122,8 @@ def _sync_get_stats() -> dict:
     ganancia_neta  = ganancia_bruta - total_gastos
 
     meses_sorted = sorted(ventas_por_mes.keys())[-6:]
+    dias_sorted = sorted(ventas_por_dia.keys())
+    
     return {
         "precio_costo":     round(total_precio_costo, 2),
         "precio_venta":     round(total_precio_venta, 2),
@@ -110,9 +132,11 @@ def _sync_get_stats() -> dict:
         "gastos":           round(total_gastos, 2),
         "inversion":        round(total_inversion, 2),
         "inventario_uds":   total_stock,
+        "stock_stats":      stock_stats,
         "top_inventario":   top_inventario[:8],
         "gastos_lista":     gastos_lista[:8],
         "ventas_por_mes":   {m: ventas_por_mes[m] for m in meses_sorted},
+        "ventas_por_dia":   {d: ventas_por_dia[d] for d in dias_sorted},
     }
 
 # ============================================================
@@ -150,247 +174,199 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌸 Maricuchis Store — Dashboard</title>
+<title>🌸 Maricuchis Store — Panel Pro</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--gold:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#60a5fa;--purple:#a78bfa;--orange:#fb923c;--bg1:#0a0416;--bg2:#0d1b2a;--card:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.08)}
+:root{--gold:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--pink:#ec4899;--bg:#050505;--card:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.08)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);min-height:100vh;color:#fff;padding:20px}
-.header{text-align:center;margin-bottom:28px}
-.header h1{font-size:clamp(1.4rem,4vw,2.2rem);font-weight:800;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.header p{color:rgba(255,255,255,0.45);font-size:.85rem;margin-top:4px}
-.last-update{color:rgba(255,255,255,0.3);font-size:.72rem;margin-top:6px}
-.loading{text-align:center;padding:40px;color:rgba(255,255,255,0.4);font-size:.9rem}
-.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:#8b5cf6;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+body{font-family:'Outfit',sans-serif;background-color:var(--bg);background-image:radial-gradient(circle at 50% 0%, rgba(139,92,246,0.15) 0%, transparent 50%);min-height:100vh;color:#fff;padding:20px;line-height:1.5}
+.container{max-width:1400px;margin:0 auto}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:15px}
+.header-left h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header-left p{color:rgba(255,255,255,0.5);font-size:.9rem}
+.last-update{background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:30px;font-size:.75rem;border:1px solid var(--border);color:rgba(255,255,255,0.6)}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:25px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;backdrop-filter:blur(20px);transition:all .3s cubic-bezier(0.4,0,0.2,1);position:relative}
+.card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)}
+.card .lbl{font-size:.7rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:8px}
+.card .val{font-size:1.6rem;font-weight:700;margin-bottom:4px}
+.card .sub{font-size:.75rem;color:rgba(255,255,255,0.3)}
+
+.grid-main{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px}
+.grid-sub{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+@media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
+@media(max-width:900px){.grid-sub{grid-template-columns:1fr}}
+
+.panel{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:25px;backdrop-filter:blur(20px)}
+.panel h3{font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.9)}
+.panel h3 span{color:rgba(255,255,255,0.4);font-size:.8rem;font-weight:400}
+
+.chart-container{position:relative;width:100%;height:260px}
+
+table{width:100%;border-collapse:separate;border-spacing:0 8px}
+th{text-align:left;font-size:.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;padding:0 12px 10px}
+td{background:rgba(255,255,255,0.02);padding:12px;font-size:.85rem}
+td:first-child{border-radius:12px 0 0 12px}
+td:last-child{border-radius:0 12px 12px 0;text-align:right}
+.tag{padding:4px 10px;border-radius:8px;font-size:.7rem;font-weight:700}
+.tag-green{background:rgba(16,185,129,0.1);color:var(--green)}
+.tag-red{background:rgba(239,68,68,0.1);color:var(--red)}
+.tag-gold{background:rgba(245,158,11,0.1);color:var(--gold)}
+
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000}
+.spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.05);border-top-color:var(--purple);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* Metric Cards */
-.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
-@media(max-width:900px){.metrics{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.metrics{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 16px;backdrop-filter:blur(12px);transition:transform .2s;position:relative;overflow:hidden}
-.card:hover{transform:translateY(-3px)}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
-.c-gold::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
-.c-blue::before{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
-.c-green::before{background:linear-gradient(90deg,#059669,#10b981)}
-.c-orange::before{background:linear-gradient(90deg,#ea580c,#fb923c)}
-.c-purple::before{background:linear-gradient(90deg,#7c3aed,#a78bfa)}
-.card .icon{font-size:1.3rem;margin-bottom:6px}
-.card .lbl{font-size:.68rem;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
-.card .val{font-size:1.5rem;font-weight:700;margin-top:3px;line-height:1.2}
-.c-gold .val{color:var(--gold)}
-.c-blue .val{color:var(--blue)}
-.c-green .val{color:var(--green)}
-.c-orange .val{color:var(--orange)}
-.c-purple .val{color:var(--purple)}
-.card .sub{font-size:.68rem;color:rgba(255,255,255,0.3);margin-top:4px}
-
-/* Charts */
-.charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
-@media(max-width:768px){.charts{grid-template-columns:1fr}}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;backdrop-filter:blur(12px)}
-.panel h3{font-size:.9rem;font-weight:600;color:rgba(255,255,255,0.75);margin-bottom:18px;display:flex;align-items:center;gap:8px}
-.donut-wrap{position:relative;max-width:260px;margin:0 auto}
-.donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
-.donut-center .big{font-size:1.3rem;font-weight:700;color:#fff}
-.donut-center .small{font-size:.65rem;color:rgba(255,255,255,0.4)}
-.legend{margin-top:18px;display:flex;flex-direction:column;gap:8px}
-.legend-item{display:flex;align-items:center;gap:10px;font-size:.78rem}
-.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-
-/* Tables */
-.tables{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media(max-width:768px){.tables{grid-template-columns:1fr}}
-table{width:100%;border-collapse:collapse;font-size:.78rem}
-thead th{color:rgba(255,255,255,0.4);font-weight:500;text-transform:uppercase;font-size:.66rem;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
-tbody td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.8)}
-tbody tr:last-child td{border-bottom:none}
-.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.65rem;font-weight:600}
-.tag-green{background:rgba(16,185,129,.15);color:#10b981}
-.tag-red{background:rgba(239,68,68,.15);color:#ef4444}
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>🌸 Maricuchis Store</h1>
-  <p>Dashboard Financiero</p>
-  <div class="last-update" id="lastUpdate">Cargando datos...</div>
-</div>
+<div id="loading" class="loading-overlay"><div class="spinner"></div><p style="margin-top:20px;color:rgba(255,255,255,0.5)">Sincronizando con Notion...</p></div>
 
-<div id="app">
-  <div class="loading"><div class="spinner"></div>Conectando con Notion...</div>
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <h1>🌸 Maricuchis Store</h1>
+      <p>Inteligencia de Negocio en Tiempo Real</p>
+    </div>
+    <div class="last-update" id="lastUpdate">Actualizando...</div>
+  </div>
+
+  <div id="metrics" class="metrics"></div>
+
+  <div class="grid-main">
+    <div class="panel">
+      <h3>📈 Tendencia de Ventas <span>(Últimos 30 días)</span></h3>
+      <div class="chart-container"><canvas id="lineChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>🍩 Salud del Stock <span>(Unidades)</span></h3>
+      <div class="chart-container" style="height:220px"><canvas id="stockDonut"></canvas></div>
+      <div id="stockLegend" style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+    </div>
+  </div>
+
+  <div class="grid-sub">
+    <div class="panel">
+      <h3>💰 Flujo Mensual <span>(Ingresos vs Costos)</span></h3>
+      <div class="chart-container" style="height:200px"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="panel" style="grid-column: span 2">
+      <h3>📦 Top Inventario <span>(Mayor Valor)</span></h3>
+      <table>
+        <thead><tr><th>Prenda</th><th>Stock</th><th>Inversión</th></tr></thead>
+        <tbody id="invTable"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
-const S = n => `S/ ${Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-const UDS = n => `${n} uds`;
-let donutChart = null, barChart = null;
+const S = n => 'S/ ' + Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+let charts = {};
 
 async function loadData() {
   try {
     const res = await fetch('/api/stats');
-    if (!res.ok) throw new Error('Error al conectar');
     const d = await res.json();
-    renderDashboard(d);
-    document.getElementById('lastUpdate').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-PE');
-  } catch(e) {
-    document.getElementById('app').innerHTML = `<div class="loading" style="color:#ef4444">❌ Error al cargar datos: ${e.message}</div>`;
-  }
+    updateUI(d);
+    document.getElementById('loading').style.display = 'none';
+  } catch(e) { console.error(e); }
 }
 
-function renderDashboard(d) {
-  const ganancia = d.ganancia_neta;
-  const esNegativo = ganancia < 0;
+function updateUI(d) {
+  document.getElementById('lastUpdate').textContent = 'Visto: ' + new Date().toLocaleTimeString('es-PE');
+  
+  // METRICS
+  const gn = d.ganancia_neta;
+  const metrics = [
+    {lbl:'Ventas Totales', val:S(d.precio_venta), sub:'Ingresos Brutos', color:'var(--blue)'},
+    {lbl:'Inversión Total', val:S(d.precio_costo), sub:'Costo de lo vendido', color:'var(--gold)'},
+    {lbl:'Ganancia Neta', val:S(gn), sub:'Post-gastos', color:gn>=0?'var(--green)':'var(--red)'},
+    {lbl:'Inversión Activa', val:S(d.inversion), sub:'Mercadería en stock', color:'var(--pink)'},
+    {lbl:'Unidades', val:d.inventario_uds, sub:'Total en almacén', color:'var(--purple)'}
+  ];
+  document.getElementById('metrics').innerHTML = metrics.map(m => `
+    <div class="card">
+      <div class="lbl">${m.lbl}</div>
+      <div class="val" style="color:${m.color}">${m.val}</div>
+      <div class="sub">${m.sub}</div>
+    </div>`).join('');
 
-  document.getElementById('app').innerHTML = `
-  <!-- MÉTRICAS -->
-  <div class="metrics">
-    <div class="card c-gold">
-      <div class="icon">💰</div>
-      <div class="lbl">Precio Costo</div>
-      <div class="val">${S(d.precio_costo)}</div>
-      <div class="sub">Lo que pagaste por lo vendido</div>
-    </div>
-    <div class="card c-blue">
-      <div class="icon">💵</div>
-      <div class="lbl">Precio Venta</div>
-      <div class="val">${S(d.precio_venta)}</div>
-      <div class="sub">Total cobrado a clientes</div>
-    </div>
-    <div class="card ${esNegativo ? 'c-red' : 'c-green'}" style="${esNegativo?'--green:#ef4444':''}">
-      <div class="icon">${esNegativo ? '📉' : '📈'}</div>
-      <div class="lbl">Ganancia Neta</div>
-      <div class="val" style="color:${esNegativo?'#ef4444':'#10b981'}">${S(ganancia)}</div>
-      <div class="sub">Después de gastos operativos</div>
-    </div>
-    <div class="card c-orange">
-      <div class="icon">💛</div>
-      <div class="lbl">Inversión Activa</div>
-      <div class="val">${S(d.inversion)}</div>
-      <div class="sub">Dinero en ropa sin vender</div>
-    </div>
-    <div class="card c-purple">
-      <div class="icon">📦</div>
-      <div class="lbl">Inventario</div>
-      <div class="val">${UDS(d.inventario_uds)}</div>
-      <div class="sub">Prendas en stock</div>
-    </div>
-  </div>
+  // LINE CHART (Daily Sales)
+  const days = Object.keys(d.ventas_por_dia);
+  renderChart('lineChart', 'line', {
+    labels: days.map(day => day.split('-').slice(1).reverse().join('/')),
+    datasets: [{
+      label: 'Ventas Diarias',
+      data: days.map(day => d.ventas_por_dia[day]),
+      borderColor: '#ec4899',
+      backgroundColor: 'rgba(236,72,153,0.1)',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 4,
+      pointBackgroundColor: '#ec4899'
+    }]
+  }, { scales: { y: { beginAtZero: true, ticks: { callback: v => 'S/'+v } } } });
 
-  <!-- GRÁFICOS -->
-  <div class="charts">
-    <div class="panel">
-      <h3>🍩 Distribución de Ingresos</h3>
-      <div class="donut-wrap">
-        <canvas id="donutChart"></canvas>
-        <div class="donut-center">
-          <div class="big">${S(d.precio_venta)}</div>
-          <div class="small">Total vendido</div>
-        </div>
-      </div>
-      <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div><span>Precio Costo: ${S(d.precio_costo)}</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div><span>Gastos Operativos: ${S(d.gastos)}</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div><span>Ganancia Neta: ${S(ganancia)}</span></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h3>📅 Ventas por Mes (últimos 6)</h3>
-      <canvas id="barChart" height="220"></canvas>
-    </div>
-  </div>
+  // STOCK DONUT
+  const s = d.stock_stats;
+  const stockLabels = ['Disponible', 'Stock bajo', 'Agotado'];
+  const stockData = [s.Disponible, s["Stock bajo"], s.Agotado];
+  const stockColors = ['#10b981', '#f59e0b', '#ef4444'];
+  renderChart('stockDonut', 'doughnut', {
+    labels: stockLabels,
+    datasets: [{
+      data: stockData,
+      backgroundColor: stockColors,
+      borderWidth: 0,
+      cutout: '75%'
+    }]
+  }, { plugins: { legend: { display: false } } });
+  
+  document.getElementById('stockLegend').innerHTML = stockLabels.map((l,i) => `
+    <div style="font-size:0.75rem; color:rgba(255,255,255,0.6); display:flex; align-items:center; gap:6px">
+      <div style="width:8px; height:8px; border-radius:50%; background:${stockColors[i]}"></div>
+      ${l}: <b>${stockData[i]}</b>
+    </div>`).join('');
 
-  <!-- TABLAS -->
-  <div class="tables">
-    <div class="panel">
-      <h3>📦 Inventario con mayor inversión</h3>
-      <table>
-        <thead><tr><th>Prenda</th><th>Stock</th><th>P. Costo</th><th>Inversión</th></tr></thead>
-        <tbody id="invTable"></tbody>
-      </table>
-    </div>
-    <div class="panel">
-      <h3>💸 Gastos Operativos</h3>
-      <table>
-        <thead><tr><th>Concepto</th><th>Monto</th></tr></thead>
-        <tbody id="gastosTable"></tbody>
-      </table>
-    </div>
-  </div>`;
+  // BAR CHART (Monthly)
+  const months = Object.keys(d.ventas_por_mes);
+  renderChart('barChart', 'bar', {
+    labels: months.map(m => m.split('-').reverse().join('/')),
+    datasets: [
+      { label: 'Ventas', data: months.map(m => d.ventas_por_mes[m].ingresos), backgroundColor: '#3b82f6', borderRadius: 5 },
+      { label: 'Costos', data: months.map(m => d.ventas_por_mes[m].costo), backgroundColor: '#f59e0b', borderRadius: 5 }
+    ]
+  }, { scales: { y: { ticks: { display: false }, grid: { display: false } }, x: { grid: { display: false } } } });
 
-  // Donut
-  const donutCtx = document.getElementById('donutChart').getContext('2d');
-  const costo = d.precio_costo;
-  const gastos = d.gastos;
-  const gananciaPositiva = Math.max(0, ganancia);
-  const perdida = ganancia < 0 ? Math.abs(ganancia) : 0;
-  donutChart = new Chart(donutCtx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Precio Costo', 'Gastos Operativos', 'Ganancia', 'Pérdida'],
-      datasets: [{
-        data: [costo, gastos, gananciaPositiva, perdida],
-        backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#7f1d1d'],
-        borderColor: 'transparent', borderWidth: 0,
-        hoverOffset: 6
-      }]
-    },
-    options: {
-      cutout: '68%', responsive: true,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: ctx => ` ${ctx.label}: S/ ${ctx.parsed.toFixed(2)}` }
-      }}
-    }
-  });
-
-  // Bar
-  const meses = Object.keys(d.ventas_por_mes);
-  const barCtx = document.getElementById('barChart').getContext('2d');
-  barChart = new Chart(barCtx, {
-    type: 'bar',
-    data: {
-      labels: meses.map(m => m.slice(5) + '/' + m.slice(0,4)),
-      datasets: [
-        { label: 'Precio Venta', data: meses.map(m => d.ventas_por_mes[m].ingresos), backgroundColor: 'rgba(96,165,250,0.7)', borderRadius: 6 },
-        { label: 'Precio Costo', data: meses.map(m => d.ventas_por_mes[m].costo), backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 6 },
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 } } } },
-      scales: {
-        x: { ticks: { color: 'rgba(255,255,255,0.5)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-        y: { ticks: { color: 'rgba(255,255,255,0.5)', callback: v => 'S/'+v }, grid: { color: 'rgba(255,255,255,0.05)' } }
-      }
-    }
-  });
-
-  // Tabla Inventario
-  const invT = document.getElementById('invTable');
-  d.top_inventario.forEach(p => {
-    invT.innerHTML += `<tr>
+  // TABLE
+  document.getElementById('invTable').innerHTML = d.top_inventario.map(p => `
+    <tr>
       <td>${p.nombre}</td>
-      <td>${p.stock}</td>
-      <td>S/${p.costo_u.toFixed(2)}</td>
-      <td><span class="tag tag-${p.valor>0?'green':'red'}">S/${p.valor.toFixed(2)}</span></td>
-    </tr>`;
-  });
+      <td><b>${p.stock}</b></td>
+      <td><span class="tag tag-gold">${S(p.valor)}</span></td>
+    </tr>`).join('');
+}
 
-  // Tabla Gastos
-  const gasT = document.getElementById('gastosTable');
-  if (d.gastos_lista.length === 0) {
-    gasT.innerHTML = '<tr><td colspan="2" style="color:rgba(255,255,255,0.3);text-align:center;padding:16px">Sin gastos registrados</td></tr>';
-  } else {
-    d.gastos_lista.forEach(g => {
-      gasT.innerHTML += `<tr><td>${g.nombre}</td><td><span class="tag tag-red">S/${g.monto.toFixed(2)}</span></td></tr>`;
-    });
-  }
+function renderChart(id, type, data, options = {}) {
+  if(charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: 'rgba(255,255,255,0.6)', font: { family: 'Outfit', size: 11 } } } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } } }
+    }
+  };
+  charts[id] = new Chart(ctx, { type, data, options: { ...baseOptions, ...options } });
 }
 
 loadData();
-setInterval(loadData, 120000); // Refresca cada 2 minutos
+setInterval(loadData, 60000);
 </script>
 </body>
 </html>"""
+

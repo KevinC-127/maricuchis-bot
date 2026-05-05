@@ -263,8 +263,7 @@ async def manejar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_ganancias_fecha_menu(update, context)
     elif accion in ("fin_fecha_hoy", "fin_fecha_ayer", "fin_fecha_semana", "fin_fecha_mes"):
         await cmd_ganancias_por_fecha(update, context)
-    elif accion == "menu_graficostock":
-        await cmd_grafico_stock(update, context)
+
     elif accion == "menu_comparar":
         await cmd_comparar(update, context)
     elif accion == "menu_inicio":

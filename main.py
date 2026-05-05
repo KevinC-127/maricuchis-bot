@@ -355,7 +355,6 @@ def main():
     app.add_handler(CommandHandler("resumen",     cmd_resumen))
     app.add_handler(CommandHandler("pormargen",   cmd_por_margen))
     app.add_handler(CommandHandler("portienda",   cmd_por_tienda))
-    app.add_handler(CommandHandler("graficostock",cmd_grafico_stock))
     app.add_handler(CommandHandler("chatid",      cmd_chatid))
     app.add_handler(CommandHandler("auditarventas", cmd_auditar_ventas))
 
