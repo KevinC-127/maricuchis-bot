@@ -288,7 +288,6 @@ def main():
 
     app.add_handler(ia_handler)
     app.add_handler(nueva_prenda_handler)
-    app.add_handler(sinfoto_handler)
     app.add_handler(adjfoto_handler)
     app.add_handler(venta_handler)
     app.add_handler(stock_handler)
