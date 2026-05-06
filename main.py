@@ -62,7 +62,9 @@ def main():
     nueva_prenda_handler = ConversationHandler(
         entry_points=[
             CommandHandler("nueva", cmd_nueva_prenda),
+            CommandHandler("sinfoto", cmd_sin_foto),
             CallbackQueryHandler(cmd_nueva_prenda, pattern="^menu_nueva_guiado$"),
+            CallbackQueryHandler(cmd_sin_foto, pattern="^menu_sinfoto$"),
         ],
         states={
             NP_NOMBRE:       [MessageHandler(filters.TEXT & ~filters.COMMAND, np_recibir_nombre)],
@@ -98,23 +100,12 @@ def main():
                 CallbackQueryHandler(np_volver_dia, pattern="^np_volver_dia$"),
                 MessageHandler(filters.PHOTO, np_recibir_foto),
             ],
-        },
-        fallbacks=[
-            CommandHandler("cancelar", cmd_cancelar),
-            CallbackQueryHandler(fallback_menu_inicio, pattern="^menu_inicio$"),
-        ],
-        per_message=False,
-    )
-
-    # ConversationHandler — Sin foto
-    sinfoto_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler("sinfoto", cmd_sin_foto),
-            CallbackQueryHandler(cmd_sin_foto, pattern="^menu_sinfoto$"),
-        ],
-        states={
-            SINFOTO_NOMBRE: [MessageHandler(filters.TEXT & ~filters.COMMAND, sinfoto_recibir_nombre)],
-            SINFOTO_DATOS:  [MessageHandler(filters.TEXT & ~filters.COMMAND, sinfoto_recibir_datos)],
+            NP_EDIT_CAMPO:   [
+                CallbackQueryHandler(np_edit_elegir_campo, pattern="^np_edit_last$"),
+                CallbackQueryHandler(np_edit_campo_seleccionado, pattern="^npe_"),
+            ],
+            NP_EDIT_VALOR:   [MessageHandler(filters.TEXT & ~filters.COMMAND, np_edit_recibir_valor)],
+            NP_EDIT_FOTO:    [MessageHandler(filters.PHOTO, np_edit_recibir_foto)],
         },
         fallbacks=[
             CommandHandler("cancelar", cmd_cancelar),
@@ -364,6 +355,7 @@ def main():
     # CallbackQuery para el menú principal
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^fin_"))
+    app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^sel_inv_"))
 
     # Handler global para callbacks perdidos/reiniciados
     async def callback_invalido(update: Update, context: ContextTypes.DEFAULT_TYPE):

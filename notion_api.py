@@ -119,7 +119,8 @@ def _sync_crear_prenda_notion(nombre, costo, precio, stock,
     r = requests.post("https://api.notion.com/v1/pages", headers=NOTION_HEADERS, json=payload, timeout=15)
     if r.status_code != 200:
         print(f"ERROR NOTION crear {r.status_code}: {r.text}")
-    return r.status_code == 200
+        return None
+    return r.json().get("id")
 
 async def subir_imagen(*args, **kwargs):
     import asyncio

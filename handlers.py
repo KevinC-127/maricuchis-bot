@@ -276,6 +276,14 @@ async def manejar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_nueva_prenda_menu(update, context)
     elif accion == "menu_nueva_guiado":
         await cmd_nueva_prenda(update, context)
+    elif accion == "menu_inv_tienda":
+        await cmd_inv_por_tienda(update, context)
+    elif accion == "menu_inv_fecha":
+        await cmd_inv_por_fecha(update, context)
+    elif accion.startswith("sel_inv_tienda:"):
+        await cmd_inv_tienda_resultado(update, context)
+    elif accion.startswith("sel_inv_fecha:"):
+        await cmd_inv_fecha_resultado(update, context)
     elif accion == "menu_ia":
         await cmd_ia(update, context)
     elif accion == "fin_topclientes":
@@ -706,74 +714,170 @@ async def _guardar_nueva_prenda(update, context, foto_url=None):
     await (update.callback_query.message if update.callback_query else update.message).reply_text(
         "Guardando en inventario..."
     )
-    exito = await crear_prenda_notion(nombre, costo, precio, stock, foto_url, tienda, fecha)
+    page_id = await crear_prenda_notion(nombre, costo, precio, stock, foto_url, tienda, fecha)
     teclado_post = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Editar última prenda", callback_data="np_edit_last")],
         [InlineKeyboardButton("➕ Agregar otra prenda", callback_data="menu_nueva_guiado")],
         [InlineKeyboardButton("🏠 Volver al menú",      callback_data="menu_inicio")],
     ])
-    if exito:
+    if page_id:
+        context.user_data.clear()
+        context.user_data["last_prenda_id"] = page_id
+        context.user_data["last_prenda_nombre"] = nombre
         msg_ok = resumen_prenda(nombre, costo, precio, stock, tienda, fecha) + aviso_precio
         await (update.callback_query.message if update.callback_query else update.message).reply_text(
             msg_ok, reply_markup=teclado_post
         )
+        return NP_EDIT_CAMPO
     else:
         await (update.callback_query.message if update.callback_query else update.message).reply_text(
-            "❌ Error al guardar en Notion. Intenta de nuevo.", reply_markup=teclado_post
+            "❌ Error al guardar en Notion. Intenta de nuevo.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Agregar otra prenda", callback_data="menu_nueva_guiado")],
+                [InlineKeyboardButton("🏠 Volver al menú",      callback_data="menu_inicio")],
+            ])
         )
-    context.user_data.clear()
+        context.user_data.clear()
+        return ConversationHandler.END
+
+async def np_edit_elegir_campo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Muestra opciones de qué campo editar de la última prenda registrada."""
+    query = update.callback_query
+    await query.answer()
+    nombre = context.user_data.get("last_prenda_nombre", "última prenda")
+    teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💵 Costo", callback_data="npe_Costo"),
+         InlineKeyboardButton("🏷️ Precio", callback_data="npe_Precio")],
+        [InlineKeyboardButton("🏪 Tienda", callback_data="npe_Tienda"),
+         InlineKeyboardButton("📅 Fecha", callback_data="npe_Fecha Compra")],
+        [InlineKeyboardButton("📷 Foto", callback_data="npe_Foto")],
+        [InlineKeyboardButton("✅ Listo, no editar más", callback_data="npe_done")],
+    ])
+    await query.edit_message_text(
+        f"✏️ *Editar: {nombre}*\n\n¿Qué campo deseas corregir?",
+        reply_markup=teclado, parse_mode="Markdown"
+    )
+    return NP_EDIT_CAMPO
+
+async def np_edit_campo_seleccionado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe el campo seleccionado para editar."""
+    query = update.callback_query
+    await query.answer()
+    if query.data == "npe_done":
+        await query.edit_message_text("✅ Prenda guardada correctamente.")
+        context.user_data.clear()
+        return ConversationHandler.END
+    campo = query.data.replace("npe_", "")
+    if campo == "Foto":
+        context.user_data["edit_campo"] = "Foto"
+        await query.edit_message_text("📷 Envía la nueva foto de la prenda:")
+        return NP_EDIT_FOTO
+    context.user_data["edit_campo"] = campo
+    etiquetas = {"Costo": "costo total (S/)", "Precio": "precio de venta (S/)",
+                 "Tienda": "nombre de tienda", "Fecha Compra": "fecha (DD/MM/YYYY)"}
+    await query.edit_message_text(f"Escribe el nuevo valor de *{etiquetas.get(campo, campo)}*:", parse_mode="Markdown")
+    return NP_EDIT_VALOR
+
+async def np_edit_recibir_valor(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe el nuevo valor y actualiza en Notion."""
+    page_id = context.user_data.get("last_prenda_id")
+    campo   = context.user_data.get("edit_campo", "")
+    texto   = update.message.text.strip()
+    if not page_id:
+        await update.message.reply_text("❌ No se encontró la prenda. Intenta de nuevo.")
+        return ConversationHandler.END
+
+    props = {}
+    if campo in ("Costo", "Precio"):
+        try:
+            valor = float(texto.replace(",", "."))
+            assert valor > 0
+            props[campo] = {"number": valor}
+            if campo == "Costo":
+                stock = context.user_data.get("np_stock", 0)
+                if stock > 0:
+                    props["Costo Unitario"] = {"number": round(valor / stock, 2)}
+        except:
+            await update.message.reply_text("Escribe solo el número. Ejemplo: 480")
+            return NP_EDIT_VALOR
+    elif campo == "Tienda":
+        props["Tienda"] = {"rich_text": [{"text": {"content": texto}}]}
+    elif campo == "Fecha Compra":
+        from datetime import datetime as dt
+        fecha_iso = None
+        for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+            try:
+                fecha_iso = dt.strptime(texto, fmt).strftime("%Y-%m-%d")
+                break
+            except:
+                pass
+        if not fecha_iso:
+            await update.message.reply_text("Formato incorrecto. Usa DD/MM/YYYY. Ejemplo: 01/05/2026")
+            return NP_EDIT_VALOR
+        props["Fecha Compra"] = {"date": {"start": fecha_iso}}
+
+    exito = await actualizar_prenda_notion(page_id, props)
+    if exito:
+        await update.message.reply_text(f"✅ *{campo}* actualizado correctamente.", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ Error al actualizar en Notion.")
+
+    # Mostrar opciones de editar otro campo
+    nombre = context.user_data.get("last_prenda_nombre", "última prenda")
+    teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💵 Costo", callback_data="npe_Costo"),
+         InlineKeyboardButton("🏷️ Precio", callback_data="npe_Precio")],
+        [InlineKeyboardButton("🏪 Tienda", callback_data="npe_Tienda"),
+         InlineKeyboardButton("📅 Fecha", callback_data="npe_Fecha Compra")],
+        [InlineKeyboardButton("📷 Foto", callback_data="npe_Foto")],
+        [InlineKeyboardButton("✅ Listo, no editar más", callback_data="npe_done")],
+    ])
+    await update.message.reply_text(
+        f"✏️ *{nombre}* — ¿Deseas corregir otro campo?",
+        reply_markup=teclado, parse_mode="Markdown"
+    )
+    return NP_EDIT_CAMPO
+
+async def np_edit_recibir_foto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe nueva foto y actualiza en Notion."""
+    msg = update.message
+    if not msg.photo:
+        await msg.reply_text("Envía una foto. Si no deseas cambiarla, escribe /cancelar")
+        return NP_EDIT_FOTO
+    page_id = context.user_data.get("last_prenda_id")
+    await msg.reply_text("Subiendo foto...")
+    foto    = msg.photo[-1]
+    archivo = await context.bot.get_file(foto.file_id)
+    img_bytes = await archivo.download_as_bytearray()
+    foto_url  = await subir_imagen(bytes(img_bytes))
+    if foto_url and page_id:
+        props = {"Foto": {"url": foto_url}}
+        await actualizar_prenda_notion(page_id, props)
+        await msg.reply_text("✅ Foto actualizada correctamente.")
+    else:
+        await msg.reply_text("❌ Error al subir la foto.")
+
+    nombre = context.user_data.get("last_prenda_nombre", "última prenda")
+    teclado = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💵 Costo", callback_data="npe_Costo"),
+         InlineKeyboardButton("🏷️ Precio", callback_data="npe_Precio")],
+        [InlineKeyboardButton("🏪 Tienda", callback_data="npe_Tienda"),
+         InlineKeyboardButton("📅 Fecha", callback_data="npe_Fecha Compra")],
+        [InlineKeyboardButton("📷 Foto", callback_data="npe_Foto")],
+        [InlineKeyboardButton("✅ Listo, no editar más", callback_data="npe_done")],
+    ])
+    await msg.reply_text(
+        f"✏️ *{nombre}* — ¿Deseas corregir otro campo?",
+        reply_markup=teclado, parse_mode="Markdown"
+    )
+    return NP_EDIT_CAMPO
 
 # ============================================================
-# CONVERSATION HANDLER — SIN FOTO
+# CONVERSATION HANDLER — SIN FOTO (redirige al flujo guiado)
 # ============================================================
 async def cmd_sin_foto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _reply(update, "Registro sin foto\n\nEscribe el nombre de la prenda:\n(Cancela con /cancelar)")
-    return SINFOTO_NOMBRE
-
-async def sinfoto_recibir_nombre(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    nombre = update.message.text.strip()
-    if len(nombre) < 3:
-        await update.message.reply_text(
-            "El nombre es muy corto. Escribe un nombre mas descriptivo.\nEjemplo: Chompa cuello V azul"
-        )
-        return SINFOTO_NOMBRE
-    context.user_data["nombre_prenda"] = nombre
-    await update.message.reply_text(
-        f"Prenda: {nombre}\n\nAhora escribe:\n  costo, precio, stock\n\nOpcionales:\n"
-        "  , tienda, DD/MM/YYYY\n\nEjemplo: 96, 130, 12, Gamarra, 01/05/2026"
-    )
-    return SINFOTO_DATOS
-
-async def sinfoto_recibir_datos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    nombre = context.user_data.get("nombre_prenda", "Sin nombre")
-    datos  = parsear_caption(f"{nombre}, {update.message.text.strip()}")
-    if not datos:
-        await update.message.reply_text(
-            "No entendi los datos. Escribelos asi:\n  costo, precio, stock\n\n"
-            "(Escribe - como precio si aun no lo tienes definido)"
-        )
-        return SINFOTO_DATOS
-    nombre, costo, precio, stock, tienda, fecha = datos
-    if precio is None:
-        costo_unit = costo / stock if stock > 0 else costo
-        precio = calcular_precio_sugerido(costo_unit)
-        precio_auto = True
-    else:
-        precio_auto = False
-    if costo <= 0 or precio <= 0 or stock <= 0:
-        await update.message.reply_text("El costo, precio y stock deben ser mayores a 0.")
-        return SINFOTO_DATOS
-    await update.message.reply_text("Guardando en inventario...")
-    exito = await crear_prenda_notion(nombre, costo, precio, stock, None, tienda, fecha)
-    if exito:
-        await update.message.reply_text(
-            resumen_prenda(nombre, costo, precio, stock, tienda, fecha) +
-            (f"\n\n💡 Precio calculado automáticamente: S/{precio:.0f}" if precio_auto else "") +
-            "\n\nSin foto por ahora. Puedes adjuntarla con /adjfoto"
-        )
-    else:
-        await update.message.reply_text("Error al guardar en Notion.")
-    context.user_data.clear()
-    return ConversationHandler.END
+    """Redirige al flujo guiado de nueva prenda (mismo flujo con botones)."""
+    return await cmd_nueva_prenda(update, context)
 
 # ============================================================
 # CONVERSATION HANDLER — ADJUNTAR FOTO
@@ -1735,6 +1839,104 @@ async def cmd_inventario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     resumen_hdr = "\n".join(lineas)
     await _reply(update, resumen_hdr + "\n\n<pre>" + tabla + "</pre>", parse_mode="HTML")
 
+# ============================================================
+# HANDLER — INVENTARIO FILTRADO POR TIENDA / FECHA
+# ============================================================
+def _tabla_prendas(prendas, titulo):
+    """Genera una tabla formateada de prendas para Telegram."""
+    if not prendas:
+        return f"{titulo}\n\nNo se encontraron prendas."
+    disp     = sum(1 for p in prendas if p["estado"] == "Disponible")
+    limitado = sum(1 for p in prendas if p["estado"] == "Stock limitado")
+    agotado  = sum(1 for p in prendas if p["estado"] == "Agotado")
+    lineas = [
+        f"{titulo} ({len(prendas)} prendas)\n",
+        f"🟢 Disponible: {disp}  🟡 Stock bajo: {limitado}  🔴 Agotado: {agotado}\n",
+    ]
+    encabezado = f"{'Prenda':<22} {'Stk':>4} {'S/':>5} Est"
+    separador  = "─" * (22 + 4 + 5 + 4 + 3)
+    filas = [encabezado, separador]
+    for p in prendas:
+        icono  = "🟢" if p["estado"] == "Disponible" else ("🟡" if p["estado"] == "Stock limitado" else "🔴")
+        nombre = p["nombre"][:22].ljust(22)
+        stk    = str(p["stock"]).rjust(4)
+        precio = str(int(p["precio"])).rjust(5)
+        filas.append(f"{nombre} {stk} {precio} {icono}")
+    tabla = "\n".join(filas)
+    resumen_hdr = "\n".join(lineas)
+    return resumen_hdr + "\n<pre>" + tabla + "</pre>"
+
+async def cmd_inv_por_tienda(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Muestra botones con tiendas registradas para filtrar inventario."""
+    query = update.callback_query
+    if query:
+        await query.answer()
+    tiendas = await fetch_tiendas_registradas()
+    if not tiendas:
+        await _reply(update, "No hay tiendas registradas en el inventario.")
+        return
+    botones = [[InlineKeyboardButton(f"🏪 {t}", callback_data=f"sel_inv_tienda:{t}")] for t in tiendas]
+    botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="menu_inventario_sub")])
+    await _reply(update, "🏪 *¿De qué tienda deseas ver el inventario?*",
+                 reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
+
+async def cmd_inv_tienda_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Muestra el inventario filtrado por tienda."""
+    query = update.callback_query
+    await query.answer()
+    tienda = query.data.replace("sel_inv_tienda:", "")
+    await query.message.reply_text(f"Buscando prendas de *{tienda}*...", parse_mode="Markdown")
+    prendas = await fetch_inventario_completo()
+    if not prendas:
+        await query.message.reply_text("Error al consultar inventario.")
+        return
+    filtradas = [p for p in prendas if p.get("tienda", "").strip().lower() == tienda.strip().lower()]
+    texto = _tabla_prendas(filtradas, f"🏪 Inventario — {tienda}")
+    await query.message.reply_text(texto, parse_mode="HTML")
+
+async def cmd_inv_por_fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Muestra botones con meses de compra registrados para filtrar inventario."""
+    query = update.callback_query
+    if query:
+        await query.answer()
+    prendas = await fetch_inventario_completo()
+    if not prendas:
+        await _reply(update, "No hay prendas en el inventario.")
+        return
+    meses = sorted({p["fecha"][:7] for p in prendas if p.get("fecha", "")}, reverse=True)
+    if not meses:
+        await _reply(update, "No hay fechas de compra registradas en el inventario.")
+        return
+    from datetime import datetime
+    botones = []
+    for m in meses[:12]:  # últimos 12 meses
+        try:
+            label = datetime.strptime(m, "%Y-%m").strftime("%B %Y").capitalize()
+        except:
+            label = m
+        botones.append([InlineKeyboardButton(f"📅 {label}", callback_data=f"sel_inv_fecha:{m}")])
+    botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="menu_inventario_sub")])
+    await _reply(update, "📅 *¿De qué mes de compra deseas ver el inventario?*",
+                 reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
+
+async def cmd_inv_fecha_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Muestra el inventario filtrado por mes de compra."""
+    query = update.callback_query
+    await query.answer()
+    mes = query.data.replace("sel_inv_fecha:", "")
+    from datetime import datetime
+    try:
+        label = datetime.strptime(mes, "%Y-%m").strftime("%B %Y").capitalize()
+    except:
+        label = mes
+    await query.message.reply_text(f"Buscando prendas compradas en *{label}*...", parse_mode="Markdown")
+    prendas = await fetch_inventario_completo()
+    if not prendas:
+        await query.message.reply_text("Error al consultar inventario.")
+        return
+    filtradas = [p for p in prendas if p.get("fecha", "").startswith(mes)]
+    texto = _tabla_prendas(filtradas, f"📅 Inventario — {label}")
+    await query.message.reply_text(texto, parse_mode="HTML")
 
 async def cmd_ganancias_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Submenú financiero con opciones de resumen."""

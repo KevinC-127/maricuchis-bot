@@ -327,6 +327,8 @@ def teclado_submenu_inventario() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📋 Ver inventario",       callback_data="menu_inventario")],
         [InlineKeyboardButton("🔴 Ver agotados",         callback_data="menu_agotados")],
+        [InlineKeyboardButton("🏪 Por tienda",           callback_data="menu_inv_tienda")],
+        [InlineKeyboardButton("📅 Por fecha de compra",  callback_data="menu_inv_fecha")],
         [InlineKeyboardButton("⬅️ Volver",               callback_data="menu_inicio")],
     ])
 
