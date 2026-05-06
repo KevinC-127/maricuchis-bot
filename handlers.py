@@ -1875,7 +1875,9 @@ async def cmd_inv_por_tienda(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not tiendas:
         await _reply(update, "No hay tiendas registradas en el inventario.")
         return
-    botones = [[InlineKeyboardButton(f"🏪 {t}", callback_data=f"sel_inv_tienda:{t}")] for t in tiendas]
+    # Guardar mapeo índice → tienda para evitar callback_data largo
+    context.user_data["inv_tiendas"] = {str(i): t for i, t in enumerate(tiendas)}
+    botones = [[InlineKeyboardButton(f"🏪 {t}", callback_data=f"sel_inv_tienda:{i}")] for i, t in enumerate(tiendas)]
     botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="menu_inventario_sub")])
     await _reply(update, "🏪 *¿De qué tienda deseas ver el inventario?*",
                  reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
@@ -1884,7 +1886,8 @@ async def cmd_inv_tienda_resultado(update: Update, context: ContextTypes.DEFAULT
     """Muestra el inventario filtrado por tienda."""
     query = update.callback_query
     await query.answer()
-    tienda = query.data.replace("sel_inv_tienda:", "")
+    idx = query.data.replace("sel_inv_tienda:", "")
+    tienda = context.user_data.get("inv_tiendas", {}).get(idx, idx)
     await query.message.reply_text(f"Buscando prendas de *{tienda}*...", parse_mode="Markdown")
     prendas = await fetch_inventario_completo()
     if not prendas:
@@ -1893,6 +1896,7 @@ async def cmd_inv_tienda_resultado(update: Update, context: ContextTypes.DEFAULT
     filtradas = [p for p in prendas if p.get("tienda", "").strip().lower() == tienda.strip().lower()]
     texto = _tabla_prendas(filtradas, f"🏪 Inventario — {tienda}")
     await query.message.reply_text(texto, parse_mode="HTML")
+
 
 async def cmd_inv_por_fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Muestra botones con meses de compra registrados para filtrar inventario."""
