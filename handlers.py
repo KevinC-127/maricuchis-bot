@@ -2035,19 +2035,21 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
         try:
             ganancia = props.get("Ganancia", {}).get("number") or 0
             cantidad = props.get("Cantidad", {}).get("number") or 0
-            precio   = props.get("Precio real", {}).get("number") or 0
+            precio   = props.get("Precio Venta", {}).get("number") or 0
+            costo_u_v= props.get("Costo unitario", {}).get("number") or 0
             prenda_r = props.get("Prenda", {}).get("rich_text", [])
             prenda   = prenda_r[0]["text"]["content"] if prenda_r else "Sin nombre"
             cliente_r = props.get("Cliente", {}).get("rich_text", [])
             cliente  = cliente_r[0]["text"]["content"] if cliente_r else ""
             ventas.append({"prenda": prenda, "cantidad": cantidad,
-                           "precio": precio, "ganancia": ganancia, "cliente": cliente})
+                           "precio": precio, "ganancia": ganancia, "cliente": cliente,
+                           "costo_u": costo_u_v})
         except Exception:
             continue
 
     total_gan  = sum(v["ganancia"] for v in ventas)
     total_uds  = sum(v["cantidad"] for v in ventas)
-    total_ing  = sum(v["precio"] * v["cantidad"] for v in ventas)  # Precio real es por unidad
+    total_ing  = sum(v["ganancia"] + (v["costo_u"] * v["cantidad"]) for v in ventas)  # Ingresos reales
     n_ventas   = len(ventas)
 
     lineas = [
@@ -2226,7 +2228,7 @@ def _sync_auditar_y_corregir_ganancias() -> dict:
             props    = page.get("properties", {})
             page_id  = page["id"]
             cantidad  = props.get("Cantidad",       {}).get("number") or 0
-            precio    = props.get("Precio real",    {}).get("number") or 0
+            precio    = props.get("Precio Venta",    {}).get("number") or 0
             costo_u   = props.get("Costo unitario", {}).get("number") or 0
             descuento = props.get("Descuento",      {}).get("number") or 0
             ganancia_actual = props.get("Ganancia", {}).get("number")

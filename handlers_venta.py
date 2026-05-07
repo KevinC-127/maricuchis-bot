@@ -310,7 +310,7 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         exito = await crear_venta_notion(
             prenda_id=p["id"],
             cantidad=c,
-            precio_final=(pf * c) - desc_por_item,
+            precio_final=pf,  # Precio por unidad (Precio Venta)
             ganancia=ganancia,
             fecha_iso=fecha,
             cliente=cliente,

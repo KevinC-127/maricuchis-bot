@@ -242,11 +242,11 @@ def _sync_fetch_resumen_ventas_real() -> dict:
         for page in data.get("results", []):
             props = page["properties"]
             cantidad = props.get("Cantidad", {}).get("number", 0) or 0
-            precio_real = props.get("Precio real", {}).get("number", 0) or 0
             ganancia = props.get("Ganancia", {}).get("number", 0) or 0
-            # Precio real es por unidad, ganancia ya es total
+            costo_u_v = props.get("Costo unitario", {}).get("number", 0) or 0
+            # Calcular ingresos reales desde ganancia + costo (fiable siempre)
             total_uds += cantidad
-            total_ingresos += precio_real * cantidad
+            total_ingresos += ganancia + (costo_u_v * cantidad)
             total_ganancia += ganancia
         if not data.get("has_more"):
             break
@@ -339,7 +339,7 @@ def _sync_historial_ventas_prenda(nombre_prenda: str) -> dict:
             fecha_d  = props.get("Fecha", {}).get("date") or {}
             fecha    = fecha_d.get("start", "")[:10]
             cantidad = props.get("Cantidad",    {}).get("number") or 0
-            precio_r = props.get("Precio real", {}).get("number") or 0
+            precio_r = props.get("Precio Venta", {}).get("number") or 0
             ganancia = props.get("Ganancia",    {}).get("number") or 0
             cliente  = ""
             cliente_r = props.get("Cliente", {}).get("rich_text", [])
@@ -389,7 +389,7 @@ def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia,
             "Fecha":         {"date": {"start": fecha}},
             "Prenda":        {"rich_text": [{"text": {"content": nombre_prenda}}]},
             "Cantidad":      {"number": cantidad},
-            "Precio real":   {"number": precio_final},
+            "Precio Venta":  {"number": precio_final},
             "Costo unitario":{"number": round(costo_u, 2)},
             "Descuento":     {"number": round(descuento, 2)},
             "Ganancia":      {"number": round(ganancia, 2)},
@@ -477,7 +477,7 @@ def _sync_buscar_ventas_notion(termino: str) -> list:
         nombre   = prenda_n[0]["text"]["content"] if prenda_n else ""
         if termino.lower() in nombre.lower() or not termino:
             cantidad = props.get("Cantidad", {}).get("number", 0) or 0
-            precio   = props.get("Precio real", {}).get("number", 0) or 0
+            precio   = props.get("Precio Venta", {}).get("number", 0) or 0
             fecha_d  = props.get("Fecha", {}).get("date") or {}
             fecha    = fecha_d.get("start", "")
             resultados.append({
@@ -513,7 +513,7 @@ def _sync_fetch_ventas_pendientes() -> list:
         prenda_n = props.get("Prenda", {}).get("rich_text", [])
         nombre   = prenda_n[0]["text"]["content"] if prenda_n else ""
         cantidad = props.get("Cantidad", {}).get("number", 0) or 0
-        precio   = props.get("Precio real", {}).get("number", 0) or 0
+        precio   = props.get("Precio Venta", {}).get("number", 0) or 0
         fecha_d  = props.get("Fecha", {}).get("date") or {}
         fecha    = fecha_d.get("start", "")
         cliente_rt = props.get("Cliente", {}).get("rich_text", [])

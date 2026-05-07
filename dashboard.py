@@ -81,16 +81,16 @@ def _sync_get_stats() -> dict:
             for page in data.get("results", []):
                 props = page["properties"]
                 cantidad = props.get("Cantidad", {}).get("number", 0) or 0
-                precio_real = props.get("Precio real", {}).get("number", 0) or 0
+                precio_venta = props.get("Precio Venta", {}).get("number", 0) or 0
                 costo_u = props.get("Costo unitario", {}).get("number", 0) or 0
                 ganancia = props.get("Ganancia", {}).get("number", 0) or 0
                 fecha_d = (props.get("Fecha", {}).get("date") or {})
                 full_fecha = fecha_d.get("start", "")
                 mes = full_fecha[:7]
                 
-                # "Precio real" en Notion = precio POR UNIDAD → multiplicar × cantidad
-                # "Ganancia" en Notion = total (ya incluye × cantidad en el bot)
-                ingreso_linea = precio_real * cantidad
+                # Ingresos = ganancia + costo total (siempre fiable)
+                # Esto funciona igual sin importar si Precio Venta es por unidad o total
+                ingreso_linea = ganancia + (costo_u * cantidad)
                 costo_linea = costo_u * cantidad
                 
                 total_precio_venta += ingreso_linea
