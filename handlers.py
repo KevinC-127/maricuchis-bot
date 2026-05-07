@@ -2,6 +2,7 @@ from config import *
 from notion_api import *
 from notion_api import _formato_stock, _texto_agotados
 from ia_gemini import *
+from ia_gemini import _texto_ayuda
 # ============================================================
 # HANDLERS — COMANDOS GENERALES
 # ============================================================
@@ -1288,10 +1289,13 @@ async def _finalizar_venta(update, context):
     ganancia_tot = (precio_venta - descuento - costo_u) * cantidad
     nuevo_stock  = prenda["stock"] - cantidad
     await actualizar_prenda_notion(prenda["id"], {"Stock": {"number": nuevo_stock}})
-    await registrar_venta_notion(
-        nombre_prenda=prenda["nombre"], cantidad=cantidad,
-        precio_venta=precio_venta, costo_u=costo_u,
-        ganancia=ganancia_tot, cliente=cliente, fecha_venta=fecha,
+    await crear_venta_notion(
+        prenda_id=prenda["id"],
+        cantidad=cantidad,
+        precio_final=precio_venta,
+        ganancia=ganancia_tot,
+        fecha_iso=fecha,
+        cliente=cliente,
         descuento=descuento,
     )
     descuento_linea = f"\nDescuento:  -S/{descuento:.0f}" if descuento > 0 else ""
