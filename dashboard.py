@@ -18,6 +18,7 @@ def _sync_get_stats() -> dict:
     # ── INVENTARIO ──────────────────────────────────────────
     total_inversion = 0
     total_stock = 0
+    total_prendas = 0
     stock_stats = {"Disponible": 0, "Stock bajo": 0, "Agotado": 0}
     top_inventario = []
     inv_url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
@@ -37,6 +38,7 @@ def _sync_get_stats() -> dict:
             stock = props.get("Stock", {}).get("number", 0) or 0
             costo_u = props.get("Costo Unitario", {}).get("number", 0) or 0
             precio = props.get("Precio", {}).get("number", 0) or 0
+            total_prendas += 1
             
             # Stock Status
             if stock == 0: stock_stats["Agotado"] += 1
@@ -59,6 +61,7 @@ def _sync_get_stats() -> dict:
     # ── VENTAS ──────────────────────────────────────────────
     total_precio_venta = 0
     total_precio_costo = 0
+    total_uds_vendidas = 0
     ventas_por_mes = {}
     ventas_por_dia = {}
     from datetime import datetime, timedelta
@@ -80,23 +83,33 @@ def _sync_get_stats() -> dict:
                 cantidad = props.get("Cantidad", {}).get("number", 0) or 0
                 precio_real = props.get("Precio real", {}).get("number", 0) or 0
                 costo_u = props.get("Costo unitario", {}).get("number", 0) or 0
+                ganancia = props.get("Ganancia", {}).get("number", 0) or 0
                 fecha_d = (props.get("Fecha", {}).get("date") or {})
                 full_fecha = fecha_d.get("start", "")
                 mes = full_fecha[:7]
                 
-                total_precio_venta += precio_real * cantidad
-                total_precio_costo += costo_u * cantidad
+                ingreso_linea = precio_real * cantidad
+                costo_linea = costo_u * cantidad
+                
+                total_precio_venta += ingreso_linea
+                total_precio_costo += costo_linea
+                total_uds_vendidas += cantidad
                 
                 if mes:
                     if mes not in ventas_por_mes:
-                        ventas_por_mes[mes] = {"ingresos": 0, "costo": 0}
-                    ventas_por_mes[mes]["ingresos"] += round(precio_real * cantidad, 2)
-                    ventas_por_mes[mes]["costo"] += round(costo_u * cantidad, 2)
+                        ventas_por_mes[mes] = {"ingresos": 0, "costo": 0, "ganancia": 0, "uds": 0}
+                    ventas_por_mes[mes]["ingresos"] += round(ingreso_linea, 2)
+                    ventas_por_mes[mes]["costo"] += round(costo_linea, 2)
+                    ventas_por_mes[mes]["ganancia"] += round(ganancia, 2)
+                    ventas_por_mes[mes]["uds"] += cantidad
                 
+                # Para el gráfico diario: ingresos Y ganancia por separado
                 if full_fecha and full_fecha >= fecha_limite:
                     if full_fecha not in ventas_por_dia:
-                        ventas_por_dia[full_fecha] = 0
-                    ventas_por_dia[full_fecha] += round(precio_real * cantidad, 2)
+                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0}
+                    ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
+                    ventas_por_dia[full_fecha]["ganancia"] += round(ganancia, 2)
+                    ventas_por_dia[full_fecha]["uds"] += cantidad
 
             if not data.get("has_more"):
                 break
@@ -114,8 +127,9 @@ def _sync_get_stats() -> dict:
                 monto = props.get("Monto", {}).get("number", 0) or 0
                 nom_t = props.get("Nombre", {}).get("title", [])
                 nombre = nom_t[0]["text"]["content"] if nom_t else "Gasto"
+                fecha_g = (props.get("Fecha", {}).get("date") or {}).get("start", "")
                 total_gastos += monto
-                gastos_lista.append({"nombre": nombre, "monto": round(monto, 2)})
+                gastos_lista.append({"nombre": nombre, "monto": round(monto, 2), "fecha": fecha_g})
     gastos_lista.sort(key=lambda x: x["monto"], reverse=True)
 
     ganancia_bruta = total_precio_venta - total_precio_costo
@@ -132,9 +146,11 @@ def _sync_get_stats() -> dict:
         "gastos":           round(total_gastos, 2),
         "inversion":        round(total_inversion, 2),
         "inventario_uds":   total_stock,
+        "total_prendas":    total_prendas,
+        "uds_vendidas":     total_uds_vendidas,
         "stock_stats":      stock_stats,
         "top_inventario":   top_inventario[:8],
-        "gastos_lista":     gastos_lista[:8],
+        "gastos_lista":     gastos_lista[:10],
         "ventas_por_mes":   {m: ventas_por_mes[m] for m in meses_sorted},
         "ventas_por_dia":   {d: ventas_por_dia[d] for d in dias_sorted},
     }
@@ -174,7 +190,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌸 Maricuchis Store — Panel Pro</title>
+<title>🌸 Maricuchis Store — Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -187,33 +203,34 @@ body{font-family:'Outfit',sans-serif;background-color:var(--bg);background-image
 .header-left p{color:rgba(255,255,255,0.5);font-size:.9rem}
 .last-update{background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:30px;font-size:.75rem;border:1px solid var(--border);color:rgba(255,255,255,0.6)}
 
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:25px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;backdrop-filter:blur(20px);transition:all .3s cubic-bezier(0.4,0,0.2,1);position:relative}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:25px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;backdrop-filter:blur(20px);transition:all .3s cubic-bezier(0.4,0,0.2,1);position:relative}
 .card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)}
-.card .lbl{font-size:.7rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:8px}
-.card .val{font-size:1.6rem;font-weight:700;margin-bottom:4px}
-.card .sub{font-size:.75rem;color:rgba(255,255,255,0.3)}
+.card .lbl{font-size:.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px}
+.card .val{font-size:1.5rem;font-weight:700;margin-bottom:3px}
+.card .sub{font-size:.7rem;color:rgba(255,255,255,0.3)}
 
-.grid-main{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px}
-.grid-sub{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
-@media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
-@media(max-width:900px){.grid-sub{grid-template-columns:1fr}}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:20px}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr}}
+@media(max-width:900px){.grid-3{grid-template-columns:1fr}}
 
 .panel{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:25px;backdrop-filter:blur(20px)}
-.panel h3{font-size:1rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.9)}
-.panel h3 span{color:rgba(255,255,255,0.4);font-size:.8rem;font-weight:400}
+.panel h3{font-size:1rem;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.9)}
+.panel .desc{font-size:.72rem;color:rgba(255,255,255,0.35);margin-bottom:18px;line-height:1.4}
 
 .chart-container{position:relative;width:100%;height:260px}
 
-table{width:100%;border-collapse:separate;border-spacing:0 8px}
-th{text-align:left;font-size:.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;padding:0 12px 10px}
-td{background:rgba(255,255,255,0.02);padding:12px;font-size:.85rem}
-td:first-child{border-radius:12px 0 0 12px}
-td:last-child{border-radius:0 12px 12px 0;text-align:right}
-.tag{padding:4px 10px;border-radius:8px;font-size:.7rem;font-weight:700}
+table{width:100%;border-collapse:separate;border-spacing:0 6px}
+th{text-align:left;font-size:.63rem;color:rgba(255,255,255,0.4);text-transform:uppercase;padding:0 10px 8px}
+td{background:rgba(255,255,255,0.02);padding:10px;font-size:.82rem}
+td:first-child{border-radius:10px 0 0 10px}
+td:last-child{border-radius:0 10px 10px 0;text-align:right}
+.tag{padding:3px 9px;border-radius:7px;font-size:.68rem;font-weight:700}
 .tag-green{background:rgba(16,185,129,0.1);color:var(--green)}
 .tag-red{background:rgba(239,68,68,0.1);color:var(--red)}
 .tag-gold{background:rgba(245,158,11,0.1);color:var(--gold)}
+.tag-blue{background:rgba(59,130,246,0.1);color:var(--blue)}
 
 .loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000}
 .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.05);border-top-color:var(--purple);border-radius:50%;animation:spin 1s linear infinite}
@@ -227,36 +244,49 @@ td:last-child{border-radius:0 12px 12px 0;text-align:right}
   <div class="header">
     <div class="header-left">
       <h1>🌸 Maricuchis Store</h1>
-      <p>Inteligencia de Negocio en Tiempo Real</p>
+      <p>Dashboard Financiero en Tiempo Real</p>
     </div>
     <div class="last-update" id="lastUpdate">Actualizando...</div>
   </div>
 
   <div id="metrics" class="metrics"></div>
 
-  <div class="grid-main">
+  <div class="grid-2">
     <div class="panel">
-      <h3>📈 Tendencia de Ventas <span>(Últimos 30 días)</span></h3>
+      <h3>📈 Ventas Diarias</h3>
+      <p class="desc">Ingresos brutos (azul) y ganancia neta (verde) por día en los últimos 30 días. Los ingresos son el total cobrado; la ganancia es lo que queda después de descontar el costo unitario.</p>
       <div class="chart-container"><canvas id="lineChart"></canvas></div>
     </div>
     <div class="panel">
-      <h3>🍩 Salud del Stock <span>(Unidades)</span></h3>
-      <div class="chart-container" style="height:220px"><canvas id="stockDonut"></canvas></div>
-      <div id="stockLegend" style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+      <h3>🍩 Salud del Stock</h3>
+      <p class="desc">Cantidad de prendas según su disponibilidad. Disponible = más de 3 unidades. Stock bajo = 1 a 3 unidades. Agotado = 0 unidades.</p>
+      <div class="chart-container" style="height:200px"><canvas id="stockDonut"></canvas></div>
+      <div id="stockLegend" style="margin-top:15px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"></div>
     </div>
   </div>
 
-  <div class="grid-sub">
+  <div class="grid-3">
     <div class="panel">
-      <h3>💰 Flujo Mensual <span>(Ingresos vs Costos)</span></h3>
+      <h3>💰 Flujo Mensual</h3>
+      <p class="desc">Comparación de ingresos por ventas vs costos de mercadería vendida por mes. La diferencia es tu ganancia bruta mensual.</p>
       <div class="chart-container" style="height:200px"><canvas id="barChart"></canvas></div>
     </div>
-    <div class="panel" style="grid-column: span 2">
-      <h3>📦 Top Inventario <span>(Mayor Valor)</span></h3>
+    <div class="panel">
+      <h3>📦 Top Inventario</h3>
+      <p class="desc">Prendas con mayor inversión activa (stock actual × costo unitario). Muestra dónde está tu dinero inmovilizado.</p>
       <table>
         <thead><tr><th>Prenda</th><th>Stock</th><th>Inversión</th></tr></thead>
         <tbody id="invTable"></tbody>
       </table>
+    </div>
+    <div class="panel">
+      <h3>💸 Gastos Registrados</h3>
+      <p class="desc">Gastos operativos registrados (pasajes, envíos, etc.). Se descuentan de la ganancia bruta para obtener la ganancia neta.</p>
+      <table>
+        <thead><tr><th>Concepto</th><th>Monto</th></tr></thead>
+        <tbody id="gastosTable"></tbody>
+      </table>
+      <div id="gastosTotal" style="margin-top:10px;text-align:right;font-size:.8rem;color:rgba(255,255,255,0.4)"></div>
     </div>
   </div>
 </div>
@@ -275,16 +305,19 @@ async function loadData() {
 }
 
 function updateUI(d) {
-  document.getElementById('lastUpdate').textContent = 'Visto: ' + new Date().toLocaleTimeString('es-PE');
+  document.getElementById('lastUpdate').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-PE');
   
   // METRICS
   const gn = d.ganancia_neta;
+  const gb = d.ganancia_bruta;
+  const margen = d.precio_venta > 0 ? ((gb / d.precio_venta) * 100).toFixed(1) : 0;
   const metrics = [
-    {lbl:'Ventas Totales', val:S(d.precio_venta), sub:'Ingresos Brutos', color:'var(--blue)'},
-    {lbl:'Inversión Total', val:S(d.precio_costo), sub:'Costo de lo vendido', color:'var(--gold)'},
-    {lbl:'Ganancia Neta', val:S(gn), sub:'Post-gastos', color:gn>=0?'var(--green)':'var(--red)'},
-    {lbl:'Inversión Activa', val:S(d.inversion), sub:'Mercadería en stock', color:'var(--pink)'},
-    {lbl:'Unidades', val:d.inventario_uds, sub:'Total en almacén', color:'var(--purple)'}
+    {lbl:'Ingresos por Ventas', val:S(d.precio_venta), sub:'Total cobrado a clientes', color:'var(--blue)'},
+    {lbl:'Costo de Ventas', val:S(d.precio_costo), sub:'Costo de mercadería vendida', color:'var(--gold)'},
+    {lbl:'Ganancia Bruta', val:S(gb), sub:'Margen: ' + margen + '%', color:gb>=0?'var(--green)':'var(--red)'},
+    {lbl:'Gastos Operativos', val:S(d.gastos), sub:'Pasajes, envíos, etc.', color:'var(--pink)'},
+    {lbl:'Ganancia Neta', val:S(gn), sub:'Bruta − Gastos', color:gn>=0?'var(--green)':'var(--red)'},
+    {lbl:'Inversión en Stock', val:S(d.inversion), sub:d.inventario_uds + ' uds en ' + d.total_prendas + ' prendas', color:'var(--purple)'},
   ];
   document.getElementById('metrics').innerHTML = metrics.map(m => `
     <div class="card">
@@ -293,21 +326,51 @@ function updateUI(d) {
       <div class="sub">${m.sub}</div>
     </div>`).join('');
 
-  // LINE CHART (Daily Sales)
+  // LINE CHART (Daily Sales — Ingresos + Ganancia)
   const days = Object.keys(d.ventas_por_dia);
   renderChart('lineChart', 'line', {
-    labels: days.map(day => day.split('-').slice(1).reverse().join('/')),
-    datasets: [{
-      label: 'Ventas Diarias',
-      data: days.map(day => d.ventas_por_dia[day]),
-      borderColor: '#ec4899',
-      backgroundColor: 'rgba(236,72,153,0.1)',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 4,
-      pointBackgroundColor: '#ec4899'
-    }]
-  }, { scales: { y: { beginAtZero: true, ticks: { callback: v => 'S/'+v } } } });
+    labels: days.map(day => {
+      const p = day.split('-');
+      return p[2] + '/' + p[1];
+    }),
+    datasets: [
+      {
+        label: 'Ingresos (cobrado)',
+        data: days.map(day => d.ventas_por_dia[day].ingresos),
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#3b82f6'
+      },
+      {
+        label: 'Ganancia (neta x venta)',
+        data: days.map(day => d.ventas_por_dia[day].ganancia),
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16,185,129,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#10b981'
+      }
+    ]
+  }, {
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => 'S/'+v } }
+    },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          afterBody: function(ctx) {
+            const day = days[ctx[0].dataIndex];
+            const uds = d.ventas_por_dia[day].uds;
+            return 'Unidades: ' + uds;
+          }
+        }
+      }
+    }
+  });
 
   // STOCK DONUT
   const s = d.stock_stats;
@@ -333,20 +396,35 @@ function updateUI(d) {
   // BAR CHART (Monthly)
   const months = Object.keys(d.ventas_por_mes);
   renderChart('barChart', 'bar', {
-    labels: months.map(m => m.split('-').reverse().join('/')),
+    labels: months.map(m => {
+      const p = m.split('-');
+      return p[1] + '/' + p[0];
+    }),
     datasets: [
-      { label: 'Ventas', data: months.map(m => d.ventas_por_mes[m].ingresos), backgroundColor: '#3b82f6', borderRadius: 5 },
+      { label: 'Ingresos', data: months.map(m => d.ventas_por_mes[m].ingresos), backgroundColor: '#3b82f6', borderRadius: 5 },
       { label: 'Costos', data: months.map(m => d.ventas_por_mes[m].costo), backgroundColor: '#f59e0b', borderRadius: 5 }
     ]
   }, { scales: { y: { ticks: { display: false }, grid: { display: false } }, x: { grid: { display: false } } } });
 
-  // TABLE
+  // TABLE — Top Inventario
   document.getElementById('invTable').innerHTML = d.top_inventario.map(p => `
     <tr>
       <td>${p.nombre}</td>
       <td><b>${p.stock}</b></td>
       <td><span class="tag tag-gold">${S(p.valor)}</span></td>
     </tr>`).join('');
+
+  // TABLE — Gastos
+  if (d.gastos_lista && d.gastos_lista.length > 0) {
+    document.getElementById('gastosTable').innerHTML = d.gastos_lista.map(g => `
+      <tr>
+        <td>${g.nombre}</td>
+        <td><span class="tag tag-red">${S(g.monto)}</span></td>
+      </tr>`).join('');
+    document.getElementById('gastosTotal').innerHTML = '<b>Total: ' + S(d.gastos) + '</b>';
+  } else {
+    document.getElementById('gastosTable').innerHTML = '<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin gastos registrados</td></tr>';
+  }
 }
 
 function renderChart(id, type, data, options = {}) {
@@ -369,4 +447,3 @@ setInterval(loadData, 60000);
 </script>
 </body>
 </html>"""
-
