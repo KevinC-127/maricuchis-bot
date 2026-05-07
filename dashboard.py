@@ -84,13 +84,16 @@ def _sync_get_stats() -> dict:
                 precio_venta = props.get("Precio Venta", {}).get("number", 0) or 0
                 costo_u = props.get("Costo unitario", {}).get("number", 0) or 0
                 ganancia = props.get("Ganancia", {}).get("number", 0) or 0
+                estado_sel = props.get("Estado", {}).get("select") or {}
+                estado = estado_sel.get("name", "Completado")
                 fecha_d = (props.get("Fecha", {}).get("date") or {})
                 full_fecha = fecha_d.get("start", "")
                 mes = full_fecha[:7]
                 
-                # Ingresos = ganancia + costo total (siempre fiable)
-                # Esto funciona igual sin importar si Precio Venta es por unidad o total
-                ingreso_linea = ganancia + (costo_u * cantidad)
+                # Ganancia Efectiva: ventas pendientes no generan ganancia
+                es_completada = estado != "Pendiente"
+                ganancia_efectiva = ganancia if es_completada else 0
+                ingreso_linea = (ganancia_efectiva + (costo_u * cantidad)) if es_completada else 0
                 costo_linea = costo_u * cantidad
                 
                 total_precio_venta += ingreso_linea
@@ -102,7 +105,7 @@ def _sync_get_stats() -> dict:
                         ventas_por_mes[mes] = {"ingresos": 0, "costo": 0, "ganancia": 0, "uds": 0}
                     ventas_por_mes[mes]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_mes[mes]["costo"] += round(costo_linea, 2)
-                    ventas_por_mes[mes]["ganancia"] += round(ganancia, 2)
+                    ventas_por_mes[mes]["ganancia"] += round(ganancia_efectiva, 2)
                     ventas_por_mes[mes]["uds"] += cantidad
                 
                 # Para el gráfico diario: ingresos Y ganancia por separado
@@ -110,7 +113,7 @@ def _sync_get_stats() -> dict:
                     if full_fecha not in ventas_por_dia:
                         ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0}
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
-                    ventas_por_dia[full_fecha]["ganancia"] += round(ganancia, 2)
+                    ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
                     ventas_por_dia[full_fecha]["uds"] += cantidad
 
             if not data.get("has_more"):

@@ -1949,32 +1949,41 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
             cantidad = props.get("Cantidad", {}).get("number") or 0
             precio   = props.get("Precio Venta", {}).get("number") or 0
             costo_u_v= props.get("Costo unitario", {}).get("number") or 0
+            estado_sel = props.get("Estado", {}).get("select") or {}
+            estado   = estado_sel.get("name", "Completado")
             prenda_r = props.get("Prenda", {}).get("rich_text", [])
             prenda   = prenda_r[0]["text"]["content"] if prenda_r else "Sin nombre"
             cliente_r = props.get("Cliente", {}).get("rich_text", [])
             cliente  = cliente_r[0]["text"]["content"] if cliente_r else ""
+            # Ganancia Efectiva: pendientes no cuentan
+            ganancia_efectiva = ganancia if estado != "Pendiente" else 0
             ventas.append({"prenda": prenda, "cantidad": cantidad,
-                           "precio": precio, "ganancia": ganancia, "cliente": cliente,
-                           "costo_u": costo_u_v})
+                           "precio": precio, "ganancia": ganancia_efectiva,
+                           "costo_u": costo_u_v, "cliente": cliente,
+                           "estado": estado})
         except Exception:
             continue
 
     total_gan  = sum(v["ganancia"] for v in ventas)
     total_uds  = sum(v["cantidad"] for v in ventas)
-    total_ing  = sum(v["ganancia"] + (v["costo_u"] * v["cantidad"]) for v in ventas)  # Ingresos reales
+    total_ing  = sum(v["ganancia"] + (v["costo_u"] * v["cantidad"]) for v in ventas if v["estado"] != "Pendiente")
     n_ventas   = len(ventas)
+    pendientes = sum(1 for v in ventas if v["estado"] == "Pendiente")
 
     lineas = [
         f"📅 *Ganancias — {etiqueta}*\n",
         f"Ventas registradas: {n_ventas}",
         f"Unidades vendidas:  {total_uds} uds",
         f"Ingresos:           S/{total_ing:.0f}",
-        f"Ganancia neta:      S/{total_gan:.0f}\n",
-        "Detalle:"
+        f"Ganancia neta:      S/{total_gan:.0f}",
     ]
+    if pendientes > 0:
+        lineas.append(f"⏳ Pendientes:       {pendientes}")
+    lineas += ["\nDetalle:"]
     for v in ventas:
         cli = f" → {v['cliente']}" if v["cliente"] else ""
-        lineas.append(f"  • {v['prenda']} x{v['cantidad']}  +S/{v['ganancia']:.0f}{cli}")
+        pend = " ⏳" if v["estado"] == "Pendiente" else ""
+        lineas.append(f"  • {v['prenda']} x{v['cantidad']}  +S/{v['ganancia']:.0f}{cli}{pend}")
 
     teclado = InlineKeyboardMarkup([
         [InlineKeyboardButton("⬅️ Volver", callback_data="fin_porfecha")],

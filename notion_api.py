@@ -269,10 +269,14 @@ def _sync_fetch_resumen_ventas_real() -> dict:
             prenda_rt = props.get("Prenda", {}).get("rich_text", [])
             prenda_nom = prenda_rt[0]["text"]["content"] if prenda_rt else ""
 
-            ingreso_linea = ganancia + (costo_u_v * cantidad)
+            # Ganancia Efectiva: solo ventas completadas generan ganancia
+            es_completada = estado != "Pendiente"
+            ganancia_efectiva = ganancia if es_completada else 0
+            ingreso_linea = ganancia_efectiva + (costo_u_v * cantidad) if es_completada else 0
+
             total_uds += cantidad
             total_ingresos += ingreso_linea
-            total_ganancia += ganancia
+            total_ganancia += ganancia_efectiva
             total_descuentos += descuento
             num_ventas += 1
 
@@ -285,18 +289,18 @@ def _sync_fetch_resumen_ventas_real() -> dict:
             if prenda_nom:
                 prendas_vendidas[prenda_nom] = prendas_vendidas.get(prenda_nom, 0) + cantidad
 
-            # Periodos
-            if fecha_d:
+            # Periodos (solo ventas completadas)
+            if fecha_d and es_completada:
                 try:
                     fecha_venta = datetime.strptime(fecha_d[:10], "%Y-%m-%d").date()
                     if fecha_venta == hoy:
-                        hoy_gan += ganancia
+                        hoy_gan += ganancia_efectiva
                         hoy_ing += ingreso_linea
                     if fecha_venta >= inicio_semana:
-                        semana_gan += ganancia
+                        semana_gan += ganancia_efectiva
                         semana_ing += ingreso_linea
                     if fecha_venta >= inicio_mes:
-                        mes_gan += ganancia
+                        mes_gan += ganancia_efectiva
                         mes_ing += ingreso_linea
                 except ValueError:
                     pass
