@@ -618,15 +618,19 @@ def _sync_fetch_ventas_pendientes() -> list:
         fecha    = fecha_d.get("start", "")
         cliente_rt = props.get("Cliente", {}).get("rich_text", [])
         cliente    = cliente_rt[0]["text"]["content"] if cliente_rt else ""
+        lbl_cli = f"👤 {cliente}" if cliente else "👤 Sin Cliente"
         resultados.append({
             "id":       page["id"],
             "nombre":   nombre,
             "cantidad": cantidad,
             "precio":   precio,
             "fecha":    fecha,
-            "cliente":  cliente,
-            "label":    f"{nombre} | {cantidad}ud x S/{precio:.0f} | {fecha}" + (f" | {cliente}" if cliente else ""),
+            "cliente":  cliente or "Sin Cliente",
+            "label":    f"{lbl_cli} | {nombre} | {cantidad}ud x S/{precio:.0f}",
         })
+    
+    # Ordenar alfabéticamente por cliente para que aparezcan agrupados en el checklist
+    resultados.sort(key=lambda x: x["cliente"].lower())
     return resultados
 
 async def actualizar_estado_venta(*args, **kwargs):
