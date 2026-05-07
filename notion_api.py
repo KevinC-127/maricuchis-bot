@@ -1,6 +1,7 @@
 from config import *
 import io
 import requests
+import base64
 # ============================================================
 # HELPERS — LOGICA DE NEGOCIO
 # ============================================================
