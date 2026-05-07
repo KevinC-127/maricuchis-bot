@@ -218,6 +218,45 @@ async def fetch_tiendas_registradas() -> list:
     tiendas = sorted({p.get("tienda","").strip() for p in prendas if p.get("tienda","").strip()})
     return tiendas
 
+async def fetch_resumen_ventas_real(*args, **kwargs):
+    import asyncio, functools
+    return await asyncio.to_thread(functools.partial(_sync_fetch_resumen_ventas_real, *args, **kwargs))
+
+def _sync_fetch_resumen_ventas_real() -> dict:
+    """Consulta la BD de Ventas real para obtener ingresos, ganancias y unidades REALES."""
+    if not NOTION_VENTAS_ID:
+        return {"uds": 0, "ingresos": 0, "ganancia": 0}
+    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    total_uds = 0
+    total_ingresos = 0
+    total_ganancia = 0
+    cursor = None
+    while True:
+        payload = {"page_size": 100}
+        if cursor:
+            payload["start_cursor"] = cursor
+        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+        if r.status_code != 200:
+            break
+        data = r.json()
+        for page in data.get("results", []):
+            props = page["properties"]
+            cantidad = props.get("Cantidad", {}).get("number", 0) or 0
+            precio_real = props.get("Precio real", {}).get("number", 0) or 0
+            ganancia = props.get("Ganancia", {}).get("number", 0) or 0
+            # Precio real es por unidad, ganancia ya es total
+            total_uds += cantidad
+            total_ingresos += precio_real * cantidad
+            total_ganancia += ganancia
+        if not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+    return {
+        "uds": total_uds,
+        "ingresos": round(total_ingresos, 2),
+        "ganancia": round(total_ganancia, 2),
+    }
+
 async def fetch_inventario_completo(*args, **kwargs):
     import asyncio
     import functools

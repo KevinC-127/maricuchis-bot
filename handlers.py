@@ -2079,29 +2079,34 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not prendas:
         await _reply(update, "El inventario está vacío.")
         return
+
+    # Datos del inventario (stock, inversión, potencial)
     total_prendas    = len(prendas)
     disponibles      = sum(1 for p in prendas if p["estado"] == "Disponible")
     limitadas        = sum(1 for p in prendas if p["estado"] == "Stock limitado")
     agotadas         = sum(1 for p in prendas if p["estado"] == "Agotado")
-    total_vendidas   = sum(p["vendidas"] for p in prendas)
-    ingreso_total    = sum(p["ingreso_real"] for p in prendas)
-    ganancia_total   = sum(p["ganancia_real"] for p in prendas)
     inversion_rest   = sum(p["inversion_rest"] for p in prendas)
     valor_stock_rest = sum(p["valor_restante"] for p in prendas)
     ganancia_pot     = sum(p["stock"] * p["ganancia_u"] for p in prendas)
     total_invertido  = sum(p["costo"] for p in prendas)
-    roi = round(ganancia_total / total_invertido * 100, 1) if total_invertido > 0 else 0
     margen_prom = round(sum(p["margen"] for p in prendas) / len(prendas), 1) if prendas else 0
-    top_ganancia = sorted(prendas, key=lambda p: p["ganancia_real"], reverse=True)[:3]
     top_margen   = sorted(prendas, key=lambda p: p["margen"], reverse=True)[:3]
     stock_bajo   = [p for p in prendas if 0 < p["stock"] <= 3]
+
+    # Datos REALES de ventas (consulta BD Ventas, no estimación)
+    ventas_real = await fetch_resumen_ventas_real()
+    total_vendidas = ventas_real["uds"]
+    ingreso_total  = ventas_real["ingresos"]
+    ganancia_total = ventas_real["ganancia"]
+    roi = round(ganancia_total / total_invertido * 100, 1) if total_invertido > 0 else 0
+
     lineas = [
         "Resumen financiero — Maricuchis Store\n",
         f"Prendas en inventario: {total_prendas}",
         f"  Disponibles:   {disponibles}",
         f"  Stock limitado:{limitadas}",
         f"  Agotadas:      {agotadas}\n",
-        "LO QUE YA VENDISTE",
+        "LO QUE YA VENDISTE (datos reales)",
         f"  Unidades vendidas:  {total_vendidas} uds",
         f"  Ingresos generados: S/{ingreso_total:.0f}",
         f"  Ganancia obtenida:  S/{ganancia_total:.0f}",
@@ -2113,11 +2118,8 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "EFICIENCIA",
         f"  Total invertido:    S/{total_invertido:.0f}",
         f"  Margen promedio:    {margen_prom}%\n",
-        "TOP 3 MÁS RENTABLES (ganancia acumulada)",
+        "TOP 3 MEJOR MARGEN",
     ]
-    for i, p in enumerate(top_ganancia, 1):
-        lineas.append(f"  {i}. {p['nombre']} — S/{p['ganancia_real']:.0f} ({p['vendidas']} uds)")
-    lineas += ["", "TOP 3 MEJOR MARGEN"]
     for i, p in enumerate(top_margen, 1):
         lineas.append(f"  {i}. {p['nombre']} — {p['margen']}% (S/{p['ganancia_u']:.0f}/ud)")
     if stock_bajo:
