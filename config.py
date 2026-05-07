@@ -6,6 +6,9 @@
 import os
 import logging
 import warnings
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, ContextTypes, filters
+
 
 warnings.filterwarnings("ignore", message=".*per_message.*", category=UserWarning)
 warnings.filterwarnings('ignore', category=UserWarning, module='telegram')
