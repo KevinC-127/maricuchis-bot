@@ -5,7 +5,7 @@ import pytz
 
 from config import logger
 from handlers import _reply
-from ia_gemini import teclado_lista_prendas, teclado_lista_clientes
+from ui import teclado_lista_prendas, teclado_lista_clientes
 from notion_api import buscar_prendas_notion, crear_venta_notion, actualizar_stock_notion, obtener_clientes_previos
 
 # ESTADOS

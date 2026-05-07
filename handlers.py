@@ -1,8 +1,8 @@
 from config import *
 from notion_api import *
 from notion_api import _formato_stock, _texto_agotados
-from ia_gemini import *
-from ia_gemini import _texto_ayuda
+from ui import *
+from ui import _texto_ayuda
 # ============================================================
 # HANDLERS — COMANDOS GENERALES
 # ============================================================
@@ -18,8 +18,7 @@ async def _reply(update: Update, texto: str, **kwargs):
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Maricuchis Store - Bot v5.0\n\nHola Maritza! ¿Qué quieres hacer hoy?\n\n"
-        "Novedad: usa /ia para hablarle directamente a la IA 🤖",
+        "Maricuchis Store - Bot v6.0\n\nHola Maritza! ¿Qué quieres hacer hoy?",
         reply_markup=teclado_menu_principal()
     )
 
@@ -30,13 +29,8 @@ async def cmd_ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _reply(update, _texto_ayuda())
 
 async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tenia_sesion_ia = bool(context.user_data.get("historial_ia"))
     context.user_data.clear()
-    if tenia_sesion_ia:
-        await _reply(update, "Modo IA cerrado. Memoria borrada. ✅\n\nUsa /ia para iniciar una nueva sesion.")
-    else:
-        await _reply(update, "Operacion cancelada.")
-    # Siempre mostrar el menú al cancelar
+    await _reply(update, "Operacion cancelada.")
     await _mostrar_menu(update, context)
     return ConversationHandler.END
 
@@ -60,92 +54,6 @@ async def fallback_menu_inicio(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Tu Chat ID es: {update.effective_chat.id}")
-
-# ============================================================
-# COMANDO /ia — MODO CONVERSACIONAL CON GEMINI
-# ============================================================
-IA_ESPERANDO = 200
-
-async def cmd_ia(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not GEMINI_API_KEY:
-        await _reply(update,
-            "⚠️ La IA no está configurada aún.\n\n"
-            "Para activarla, agrega GEMINI_API_KEY en las variables de Railway.\n"
-            "Obtén tu clave gratis en: aistudio.google.com"
-        )
-        return ConversationHandler.END
-    await _reply(update,
-        "🤖 Modo IA activado!\n\n"
-        "Escríbeme lo que necesitas en lenguaje natural. Ejemplos:\n\n"
-        "• 'Actualiza el precio de la blusa floral a S/35'\n"
-        "• 'Escríbeme texto para WhatsApp de la chompa negra'\n"
-        "• '¿Qué prendas me conviene reponer?'\n"
-        "• 'Registra que vendí 2 pantalones a S/40'\n"
-        "• '¿Cuánto he ganado esta semana?'\n"
-        "• 'Sugiereme precio para prenda que me costó S/96 la docena'\n\n"
-        "(Escribe /cancelar para salir del modo IA)"
-    )
-    return IA_ESPERANDO
-
-async def ia_procesar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-
-    # Detectar foto o texto
-    imagen_bytes = None
-    foto_url_subida = None
-    if msg.photo:
-        await msg.reply_text("Procesando imagen...")
-        foto    = msg.photo[-1]
-        archivo = await context.bot.get_file(foto.file_id)
-        img_ba  = await archivo.download_as_bytearray()
-        imagen_bytes    = bytes(img_ba)
-        foto_url_subida = await subir_imagen(imagen_bytes)
-        mensaje = msg.caption.strip() if msg.caption else "Registra esta prenda en el inventario."
-    elif msg.text:
-        mensaje = msg.text.strip()
-    else:
-        await msg.reply_text("Solo entiendo texto o fotos en modo IA.")
-        return IA_ESPERANDO
-
-    await msg.reply_text("Pensando...")
-
-    historial = context.user_data.get("historial_ia", [])
-    contexto  = await construir_contexto_inventario()
-    accion_dict = await llamar_gemini(mensaje, contexto, historial=historial, imagen_bytes=imagen_bytes)
-
-    # Pasar URL de foto si la IA quiere crear prenda con foto
-    if accion_dict.get("accion") == "crear_prenda_con_foto" and foto_url_subida:
-        accion_dict["_foto_url"] = foto_url_subida
-
-    respuesta = await ejecutar_accion_ia(accion_dict, update)
-
-    if respuesta == "__GENERAR_GRAFICO__":
-        await msg.reply_text("Generando grafico...")
-        buf = await generar_grafico_stock()
-        if buf:
-            await msg.reply_photo(photo=buf, caption="Stock actual — Maricuchis Store")
-        else:
-            await msg.reply_text("No se pudo generar el grafico.")
-    elif respuesta.startswith("__MOSTRAR_FOTO__"):
-        partes_foto = respuesta.split("|||")
-        foto_url  = partes_foto[1] if len(partes_foto) > 1 else ""
-        texto_ia  = partes_foto[2] if len(partes_foto) > 2 else ""
-        if foto_url:
-            try:
-                await msg.reply_photo(photo=foto_url, caption=texto_ia)
-            except Exception:
-                await msg.reply_text(texto_ia + "\n\n(No se pudo cargar la foto)")
-        else:
-            await msg.reply_text(texto_ia + "\n\n(Esta prenda no tiene foto aún)")
-    else:
-        await msg.reply_text(respuesta)
-
-    # Guardar turno en historial (max 10 turnos)
-    raw = accion_dict.get("_raw", json.dumps(accion_dict))
-    historial.append({"usuario": mensaje, "ia_raw": raw})
-    context.user_data["historial_ia"] = historial[-10:]
-
-    return IA_ESPERANDO
 
 # ============================================================
 # COMANDO /nueva

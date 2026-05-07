@@ -5,7 +5,7 @@ import pytz
 
 from config import logger
 from handlers import _reply
-from ia_gemini import teclado_menu_principal, teclado_lista_prendas
+from ui import teclado_menu_principal, teclado_lista_prendas
 from notion_api import crear_gasto_notion, buscar_ventas_notion, eliminar_venta_notion, actualizar_stock_notion
 from handlers import _formato_stock
 

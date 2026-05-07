@@ -40,23 +40,6 @@ async def _post_init(application):
 def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(_post_init).build()
 
-    # ConversationHandler — IA
-    ia_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler("ia", cmd_ia),
-            CallbackQueryHandler(cmd_ia, pattern="^menu_ia$"),
-        ],
-        states={
-            IA_ESPERANDO: [
-                MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, ia_procesar_mensaje),
-            ],
-        },
-        fallbacks=[
-            CommandHandler("cancelar", cmd_cancelar),
-            CallbackQueryHandler(fallback_menu_inicio, pattern="^menu_inicio$"),
-        ],
-        per_message=False,
-    )
 
     # ConversationHandler — Nueva prenda guiado
     nueva_prenda_handler = ConversationHandler(
@@ -286,7 +269,7 @@ def main():
     )
     app.add_handler(devolucion_handler)
 
-    app.add_handler(ia_handler)
+
     app.add_handler(nueva_prenda_handler)
     app.add_handler(adjfoto_handler)
     app.add_handler(venta_handler)
@@ -367,7 +350,7 @@ def main():
     
     app.add_handler(CallbackQueryHandler(callback_invalido))
 
-    logger.info("Bot Maricuchis Store v5.0 iniciado con IA Gemini integrada")
+    logger.info("Bot Maricuchis Store v6.0 iniciado")
     app.run_polling()
 
 if __name__ == "__main__":
