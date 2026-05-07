@@ -607,7 +607,6 @@ async def np_recibir_foto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def _guardar_nueva_prenda(update, context, foto_url=None):
-    from datetime import datetime
     nombre     = context.user_data.get("np_nombre","")
     costo      = context.user_data.get("np_costo_total", 0)
     stock      = context.user_data.get("np_stock", 0)
@@ -978,8 +977,6 @@ async def venta_recibir_precio_manual(update: Update, context: ContextTypes.DEFA
 async def pregunta_fecha(msg_obj):
     from datetime import datetime, timedelta, timezone
     ahora    = datetime.now(timezone.utc) - timedelta(hours=5)  # Lima UTC-5
-    hoy      = ahora.strftime("%d/%m/%Y")
-    ayer     = (ahora - timedelta(days=1)).strftime("%d/%m/%Y")
     dia_hoy  = ahora.strftime("%a %d/%m").capitalize()
     dia_ayer = (ahora - timedelta(days=1)).strftime("%a %d/%m").capitalize()
     teclado = InlineKeyboardMarkup([
@@ -1087,7 +1084,6 @@ async def venta_recibir_cliente(update: Update, context: ContextTypes.DEFAULT_TY
             return ConversationHandler.END
     else:
         context.user_data["venta_cliente"] = update.message.text.strip() if update.message else ""
-        msg_obj = update.message or update.callback_query.message
         await _finalizar_venta(update, context)
         return ConversationHandler.END
 
@@ -1702,7 +1698,6 @@ async def comparar_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return COMPARAR_BUSCAR
     lineas = ["📊 Comparación de prendas\n"]
-    ids_enc = {p["id"] for p in encontradas}
     detalle = {p["id"]: p for p in encontradas}
     for label, fn in campos:
         valores = "  |  ".join(fn(detalle[p["id"]]) for p in encontradas)
@@ -1882,7 +1877,7 @@ async def cmd_ganancias_fecha_menu(update: Update, context: ContextTypes.DEFAULT
 
 async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Calcula ganancias netas del período solicitado consultando la BD de ventas."""
-    from datetime import date, timedelta, datetime as dt
+    from datetime import timedelta, datetime as dt
     import pytz
     query = update.callback_query
     await query.answer()

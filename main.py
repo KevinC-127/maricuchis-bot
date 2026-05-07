@@ -4,14 +4,14 @@ from dashboard import start_web_server
 from handlers_venta import (
     cmd_vendi, venta_buscar_prenda, venta_confirmar_prenda, venta_recibir_cantidad,
     venta_recibir_precio, venta_recibir_precio_manual, venta_volver_cantidad,
-    venta_mas_prendas, venta_pedir_cliente, venta_recibir_cliente, venta_recibir_fecha,
+    venta_mas_prendas, venta_recibir_cliente, venta_recibir_fecha,
     venta_recibir_descuento, venta_finalizar,
     VENTA_BUSCAR, VENTA_CONFIRMAR, VENTA_CANTIDAD, VENTA_PRECIO,
     VENTA_MAS, VENTA_CLIENTE, VENTA_FECHA, VENTA_DESCUENTO, VENTA_PAGO
 )
 from handlers_gastos_devoluciones import (
     cmd_gasto, gasto_recibir_nombre, gasto_recibir_monto,
-    GASTO_NOMBRE, GASTO_MONTO, GASTO_FECHA,
+    GASTO_NOMBRE, GASTO_MONTO,
     cmd_devolucion, devolucion_buscar, devolucion_confirmar,
     DEV_BUSCAR, DEV_CONFIRMAR
 )

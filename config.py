@@ -4,36 +4,16 @@
 # Novedades: v5.0 Asíncrono, súper veloz, multi-admin
 # ============================================================
 import os
-import warnings
-warnings.filterwarnings("ignore", message=".*per_message.*", category=UserWarning)
 import logging
-import base64
-import requests
 import warnings
-import json
+
+warnings.filterwarnings("ignore", message=".*per_message.*", category=UserWarning)
 warnings.filterwarnings('ignore', category=UserWarning, module='telegram')
-import io
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from datetime import datetime
+
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder,
-    MessageHandler,
-    CommandHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    TypeHandler,
-    ApplicationHandlerStop,
-    filters,
-    ContextTypes,
-)
 
 # ------------------------------------------------------------
 # VARIABLES DE ENTORNO

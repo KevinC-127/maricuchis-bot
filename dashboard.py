@@ -86,7 +86,7 @@ def _sync_get_stats() -> dict:
             for page in data.get("results", []):
                 props = page["properties"]
                 cantidad = props.get("Cantidad", {}).get("number", 0) or 0
-                precio_venta = props.get("Precio Venta", {}).get("number", 0) or 0
+                # precio_venta not used currently
                 costo_u = props.get("Costo unitario", {}).get("number", 0) or 0
                 ganancia = props.get("Ganancia", {}).get("number", 0) or 0
                 descuento = props.get("Descuento", {}).get("number", 0) or 0

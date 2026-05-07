@@ -63,7 +63,7 @@ def _sync_buscar_prendas_notion(termino: str) -> list:
     return _parsear_resultados_notion(todas_pages)
 
 async def actualizar_stock_notion(page_id: str, nuevo_stock: int) -> bool:
-    import asyncio, functools
+    import asyncio
     return await asyncio.to_thread(_sync_actualizar_prenda_notion, page_id, {"Stock": {"number": nuevo_stock}})
 
 
@@ -349,7 +349,6 @@ async def fetch_inventario_completo(*args, **kwargs):
 def _sync_fetch_inventario_completo():
     url     = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
     payload = {"sorts": [{"property": "Prenda", "direction": "ascending"}]}
-    pages   = []
     prendas = []
     while True:
         r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
@@ -488,7 +487,7 @@ def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia,
     return True
 
 async def obtener_clientes_previos():
-    import asyncio, functools
+    import asyncio
     return await asyncio.to_thread(_sync_obtener_clientes_previos)
 
 def _sync_obtener_clientes_previos() -> list:
