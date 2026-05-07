@@ -2047,7 +2047,7 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
 
     total_gan  = sum(v["ganancia"] for v in ventas)
     total_uds  = sum(v["cantidad"] for v in ventas)
-    total_ing  = sum(v["precio"] for v in ventas)  # Precio real ya es el total de la línea
+    total_ing  = sum(v["precio"] * v["cantidad"] for v in ventas)  # Precio real es por unidad
     n_ventas   = len(ventas)
 
     lineas = [

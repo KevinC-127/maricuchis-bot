@@ -88,10 +88,9 @@ def _sync_get_stats() -> dict:
                 full_fecha = fecha_d.get("start", "")
                 mes = full_fecha[:7]
                 
-                # NOTA: "Precio real" en Notion ya almacena el total de la línea
-                # (precio_unitario × cantidad - descuento), NO es precio unitario.
-                # "Ganancia" también ya incluye la cantidad.
-                ingreso_linea = precio_real  # ya es el total
+                # "Precio real" en Notion = precio POR UNIDAD → multiplicar × cantidad
+                # "Ganancia" en Notion = total (ya incluye × cantidad en el bot)
+                ingreso_linea = precio_real * cantidad
                 costo_linea = costo_u * cantidad
                 
                 total_precio_venta += ingreso_linea
