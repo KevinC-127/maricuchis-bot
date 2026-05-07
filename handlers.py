@@ -210,30 +210,92 @@ async def manejar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 PENDIENTE_CONFIRMAR = 70
 
 async def cmd_actualizar_pendiente(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Muestra ventas pendientes para marcarlas como completadas."""
+    """Muestra ventas pendientes agrupadas por cliente para marcarlas como completadas."""
     await _reply(update, "🔄 Buscando ventas pendientes...")
     pendientes = await fetch_ventas_pendientes()
     if not pendientes:
         await _reply(update, "✅ No hay ventas pendientes. ¡Todo está al día!")
         return ConversationHandler.END
-    botones = []
+    
+    # Guardar en memoria para no volver a consultar a Notion innecesariamente
+    context.user_data["pendientes_cache"] = pendientes
+    
+    # Agrupar por cliente
+    clientes = {}
     for v in pendientes:
-        botones.append([InlineKeyboardButton(v["label"], callback_data=f"pend_{v['id']}")])
+        c = v.get("cliente") or "Sin Cliente"
+        if c not in clientes:
+            clientes[c] = []
+        clientes[c].append(v)
+    
+    clientes_list = list(clientes.keys())
+    context.user_data["clientes_list"] = clientes_list
+    
+    botones = []
+    
+    # Opción para cobrar absolutamente todo
+    botones.append([InlineKeyboardButton(f"💰 Cobrar TODAS ({len(pendientes)})", callback_data="pend_all")])
+    
+    # Opciones por cliente
+    for i, cli in enumerate(clientes_list):
+        count = len(clientes[cli])
+        cli_lbl = cli if len(cli) < 30 else cli[:27] + "..."
+        botones.append([InlineKeyboardButton(f"👤 De {cli_lbl} ({count})", callback_data=f"pend_c_{i}")])
+        
+    # Opcion individual
+    botones.append([InlineKeyboardButton("📄 Individualmente...", callback_data="pend_indiv")])
     botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="menu_inicio")])
-    await _reply(update, f"🔄 *Ventas pendientes ({len(pendientes)})*\n\nElige una para marcarla como *Completado*:",
+    
+    await _reply(update, f"🔄 *Ventas pendientes ({len(pendientes)})*\n\nElige cómo cobrar:",
                  reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     return PENDIENTE_CONFIRMAR
 
 async def pendiente_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    page_id = query.data.replace("pend_", "")
-    exito = await actualizar_estado_venta(page_id, "Completado")
-    if exito:
-        await query.edit_message_text("✅ *Venta actualizada a Completado*", parse_mode="Markdown")
-    else:
-        await query.edit_message_text("❌ Error al actualizar la venta.")
-    return ConversationHandler.END
+    data = query.data
+    
+    pendientes = context.user_data.get("pendientes_cache", [])
+    clientes_list = context.user_data.get("clientes_list", [])
+    
+    if data == "pend_indiv":
+        botones = []
+        for i, v in enumerate(pendientes):
+            botones.append([InlineKeyboardButton(v["label"], callback_data=f"pend_i_{i}")])
+        botones.append([InlineKeyboardButton("⬅️ Volver", callback_data="menu_actualizar_pendiente")])
+        await query.edit_message_text("🔄 *Ventas pendientes individuales*\n\nElige una:", reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
+        return PENDIENTE_CONFIRMAR
+        
+    if data == "pend_all":
+        await query.edit_message_text("⏳ Procesando TODAS las ventas pendientes... por favor espera.")
+        count = 0
+        for v in pendientes:
+            if await actualizar_estado_venta(v["id"], "Completado"): count += 1
+        await query.edit_message_text(f"✅ *Se marcaron {count} ventas como Completado*", parse_mode="Markdown")
+        return ConversationHandler.END
+        
+    if data.startswith("pend_c_"):
+        idx = int(data.split("_")[2])
+        cli = clientes_list[idx]
+        await query.edit_message_text(f"⏳ Procesando ventas de {cli}... por favor espera.")
+        count = 0
+        for v in pendientes:
+            c = v.get("cliente") or "Sin Cliente"
+            if c == cli:
+                if await actualizar_estado_venta(v["id"], "Completado"): count += 1
+        await query.edit_message_text(f"✅ *Se marcaron {count} ventas de {cli} como Completado*", parse_mode="Markdown")
+        return ConversationHandler.END
+        
+    if data.startswith("pend_i_"):
+        idx = int(data.split("_")[2])
+        v = pendientes[idx]
+        await query.edit_message_text("⏳ Procesando venta... por favor espera.")
+        exito = await actualizar_estado_venta(v["id"], "Completado")
+        if exito:
+            await query.edit_message_text(f"✅ *Venta de {v['nombre']} actualizada a Completado*", parse_mode="Markdown")
+        else:
+            await query.edit_message_text("❌ Error al actualizar la venta.")
+        return ConversationHandler.END
 
 # ============================================================
 # HANDLER — FOTO NUEVA CON CAPTION
