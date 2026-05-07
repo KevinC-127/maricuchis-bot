@@ -1970,12 +1970,15 @@ async def cmd_ganancias_fecha_menu(update: Update, context: ContextTypes.DEFAULT
 
 async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Calcula ganancias netas del período solicitado consultando la BD de ventas."""
-    from datetime import date, timedelta
+    from datetime import date, timedelta, datetime as dt
+    import pytz
     query = update.callback_query
     await query.answer()
     periodo = query.data  # fin_fecha_hoy / ayer / semana / mes
 
-    hoy = date.today()
+    # Usar timezone Lima (UTC-5) en vez de UTC del servidor
+    tz_lima = pytz.timezone('America/Lima')
+    hoy = dt.now(tz_lima).date()
     if periodo == "fin_fecha_hoy":
         desde = hasta = hoy
         etiqueta = "Hoy"
@@ -2044,7 +2047,7 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
 
     total_gan  = sum(v["ganancia"] for v in ventas)
     total_uds  = sum(v["cantidad"] for v in ventas)
-    total_ing  = sum(v["precio"] * v["cantidad"] for v in ventas)
+    total_ing  = sum(v["precio"] for v in ventas)  # Precio real ya es el total de la línea
     n_ventas   = len(ventas)
 
     lineas = [
