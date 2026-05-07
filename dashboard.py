@@ -123,7 +123,7 @@ def _sync_get_stats() -> dict:
                     ventas_por_mes[mes]["descuentos"] += round(descuento, 2)
                     ventas_por_mes[mes]["ventas"] += 1
                 
-                if full_fecha and full_fecha >= fecha_limite:
+                if full_fecha:
                     if full_fecha not in ventas_por_dia:
                         ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0, "costo": 0, "ventas": 0}
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)

@@ -57,6 +57,27 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
   <div class="section-title">📊 Resumen General — Solo ventas completadas</div>
   <div id="metrics" class="metrics"></div>
   <div id="kpiBar" class="kpi-bar"></div>
+  <div class="section-title">⏱️ Promedios y Rango de Fechas</div>
+  <div class="panel" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+      <label style="font-size: 0.8rem; color: rgba(255,255,255,0.6)">Desde: <input type="date" id="dateStart" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px; border-radius: 5px; outline: none;"></label>
+      <label style="font-size: 0.8rem; color: rgba(255,255,255,0.6)">Hasta: <input type="date" id="dateEnd" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px; border-radius: 5px; outline: none;"></label>
+      <button onclick="calculateAverages()" style="background: var(--purple); color: white; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Calcular</button>
+      <button onclick="resetAverages()" style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: 0.2s;">Mes Actual</button>
+    </div>
+    <div class="grid-2" style="margin-bottom: 0;">
+      <div class="card" style="background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.2);">
+        <div class="lbl" style="color: var(--green)">Ganancia Promedio Diaria</div>
+        <div class="val" id="avgDaily" style="color: var(--green)">S/0.00</div>
+        <div class="sub" id="avgDailySub">Basado en 0 días</div>
+      </div>
+      <div class="card" style="background: rgba(139,92,246,0.05); border-color: rgba(139,92,246,0.2);">
+        <div class="lbl" style="color: var(--purple)">Ganancia Promedio Semanal</div>
+        <div class="val" id="avgWeekly" style="color: var(--purple)">S/0.00</div>
+        <div class="sub" id="avgWeeklySub">Basado en 0 semanas</div>
+      </div>
+    </div>
+  </div>
   <div class="section-title">📈 Análisis de Ventas — Últimos 30 días</div>
   <div class="grid-2">
     <div class="panel">
@@ -108,7 +129,59 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
 const S=n=>'S/'+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const Sn=n=>'S/'+Math.round(n);
 let charts={};
-async function loadData(){try{const r=await fetch('/api/stats');const d=await r.json();updateUI(d);document.getElementById('loading').style.display='none';}catch(e){console.error(e);}}
+let appData=null;
+async function loadData(){try{const r=await fetch('/api/stats');appData=await r.json();updateUI(appData);resetAverages();document.getElementById('loading').style.display='none';}catch(e){console.error(e);}}
+
+function calculateAverages() {
+  if (!appData) return;
+  const start = document.getElementById('dateStart').value;
+  const end = document.getElementById('dateEnd').value;
+  
+  let days = Object.keys(appData.ventas_por_dia).sort();
+  if (start) days = days.filter(d => d >= start);
+  if (end) days = days.filter(d => d <= end);
+  
+  if (days.length === 0) {
+    document.getElementById('avgDaily').textContent = 'S/0.00';
+    document.getElementById('avgWeekly').textContent = 'S/0.00';
+    document.getElementById('avgDailySub').textContent = 'Basado en 0 días';
+    document.getElementById('avgWeeklySub').textContent = 'Basado en 0 semanas';
+    return;
+  }
+  
+  let totalGanancia = 0;
+  days.forEach(d => { totalGanancia += appData.ventas_por_dia[d].ganancia; });
+  
+  const d1 = new Date(days[0] + "T00:00:00");
+  const d2 = new Date(days[days.length - 1] + "T00:00:00");
+  let diffDays = Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+  // If user selected specific dates, use the exact selected range for division to be accurate even if there were no sales on the edges
+  if (start && end) {
+      diffDays = Math.ceil(Math.abs(new Date(end + "T00:00:00") - new Date(start + "T00:00:00")) / (1000 * 60 * 60 * 24)) + 1;
+  } else if (start && !end) {
+      diffDays = Math.ceil(Math.abs(new Date() - new Date(start + "T00:00:00")) / (1000 * 60 * 60 * 24));
+  }
+  if (diffDays < 1) diffDays = 1;
+  
+  const avgD = totalGanancia / diffDays;
+  const avgW = avgD * 7;
+  const diffWeeks = (diffDays / 7).toFixed(1);
+  
+  document.getElementById('avgDaily').textContent = S(avgD);
+  document.getElementById('avgWeekly').textContent = S(avgW);
+  document.getElementById('avgDailySub').textContent = `Basado en ${diffDays} días (Ganancia total: ${S(totalGanancia)})`;
+  document.getElementById('avgWeeklySub').textContent = `Equivalente a ${diffWeeks} semanas`;
+}
+
+function resetAverages() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  document.getElementById('dateStart').value = `${year}-${month}-01`;
+  document.getElementById('dateEnd').value = '';
+  calculateAverages();
+}
+
 function updateUI(d){
   document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleTimeString('es-PE');
   const gn=d.ganancia_neta,gb=d.ganancia_bruta;
