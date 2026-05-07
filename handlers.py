@@ -1049,20 +1049,20 @@ async def venta_recibir_precio(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     prenda = context.user_data.get("prenda_venta")
     if query.data == "precio_venta_std":
-        context.user_data["venta_precio_real"] = prenda["precio"]
+        context.user_data["venta_precio_venta"] = prenda["precio"]
         await pregunta_descuento(query.message)
         return VENTA_DESCUENTO
     return VENTA_PRECIO
 
 async def venta_recibir_precio_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        precio_real = float(update.message.text.strip().replace(",", "."))
-        if precio_real <= 0:
+        precio_venta = float(update.message.text.strip().replace(",", "."))
+        if precio_venta <= 0:
             raise ValueError
     except ValueError:
         await update.message.reply_text("Escribe un precio válido. Ejemplo: 35 o 35.50")
         return VENTA_PRECIO
-    context.user_data["venta_precio_real"] = precio_real
+    context.user_data["venta_precio_venta"] = precio_venta
     await pregunta_descuento(update.message)
     return VENTA_DESCUENTO
 
@@ -1204,7 +1204,7 @@ async def venta_recibir_descuento(update: Update, context: ContextTypes.DEFAULT_
         await pregunta_fecha(query.message)
         return VENTA_FECHA
     else:
-        precio_actual = context.user_data.get("venta_precio_real", 0)
+        precio_actual = context.user_data.get("venta_precio_venta", 0)
         await query.message.reply_text(
             f"Precio registrado: S/{precio_actual:.0f}\n"
             "¿Cuánto fue el descuento? (en soles)\n"
@@ -1221,7 +1221,7 @@ async def venta_recibir_descuento_monto(update: Update, context: ContextTypes.DE
         await update.message.reply_text("Escribe un monto válido. Ejemplo: 5 o 10.50")
         return VENTA_DESCUENTO
     context.user_data["venta_descuento"] = descuento
-    precio_actual = context.user_data.get("venta_precio_real", 0)
+    precio_actual = context.user_data.get("venta_precio_venta", 0)
     await update.message.reply_text(
         f"✅ Descuento de S/{descuento:.0f} registrado. "
         f"Precio final: S/{precio_actual - descuento:.0f}"
@@ -1233,7 +1233,7 @@ async def venta_volver_cantidad(update: Update, context: ContextTypes.DEFAULT_TY
     """Volver desde Precio → re-pedir cantidad."""
     query = update.callback_query
     await query.answer()
-    context.user_data.pop("venta_precio_real", None)
+    context.user_data.pop("venta_precio_venta", None)
     prenda = context.user_data.get("prenda_venta")
     await query.message.reply_text(
         f"¿Cuántas unidades de *{prenda['nombre']}* vendiste?\nEscribe solo el número.",
@@ -1276,21 +1276,21 @@ async def venta_volver_fecha(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def _finalizar_venta(update, context):
     prenda      = context.user_data.get("prenda_venta")
     cantidad    = context.user_data.get("venta_cantidad")
-    precio_real = context.user_data.get("venta_precio_real")
+    precio_venta = context.user_data.get("venta_precio_venta")
     fecha       = context.user_data.get("venta_fecha")
     descuento   = context.user_data.get("venta_descuento", 0.0)
     cliente     = context.user_data.get("venta_cliente", "")
-    if not all([prenda, cantidad, precio_real, fecha]):
+    if not all([prenda, cantidad, precio_venta, fecha]):
         await _reply(update, "Datos incompletos. Intenta de nuevo con /venta")
         context.user_data.clear()
         return
     costo_u      = prenda["costo_u"]
-    ganancia_tot = (precio_real - descuento - costo_u) * cantidad
+    ganancia_tot = (precio_venta - descuento - costo_u) * cantidad
     nuevo_stock  = prenda["stock"] - cantidad
     await actualizar_prenda_notion(prenda["id"], {"Stock": {"number": nuevo_stock}})
     await registrar_venta_notion(
         nombre_prenda=prenda["nombre"], cantidad=cantidad,
-        precio_real=precio_real, costo_u=costo_u,
+        precio_venta=precio_venta, costo_u=costo_u,
         ganancia=ganancia_tot, cliente=cliente, fecha_venta=fecha,
         descuento=descuento,
     )
@@ -1298,7 +1298,7 @@ async def _finalizar_venta(update, context):
     msg = (
         f"✅ Venta registrada!\n\n"
         f"Prenda: {prenda['nombre']}\n"
-        f"Vendidas: {cantidad} uds a S/{precio_real:.0f}"
+        f"Vendidas: {cantidad} uds a S/{precio_venta:.0f}"
         f"{descuento_linea}\n"
         f"Ganancia: S/{ganancia_tot:.0f}\n"
         f"Stock restante: {nuevo_stock} uds"

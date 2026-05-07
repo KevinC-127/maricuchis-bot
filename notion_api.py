@@ -346,7 +346,7 @@ def _sync_historial_ventas_prenda(nombre_prenda: str) -> dict:
             if cliente_r:
                 cliente = cliente_r[0]["text"]["content"]
             ventas.append({"fecha": fecha, "cantidad": cantidad,
-                           "precio_real": precio_r, "ganancia": ganancia, "cliente": cliente})
+                           "precio_venta": precio_r, "ganancia": ganancia, "cliente": cliente})
         except Exception:
             continue
     total_uds      = sum(v["cantidad"] for v in ventas)
@@ -587,7 +587,7 @@ async def _formato_stock(prenda: dict) -> str:
         for v in hist["ventas"]:
             fecha_fmt  = v["fecha"][5:7] + "/" + v["fecha"][8:10] + "/" + v["fecha"][:4]
             cliente_str = f" — {v['cliente']}" if v["cliente"] else ""
-            lineas.append(f"  {fecha_fmt}  {v['cantidad']} ud  S/{v['precio_real']:.0f}  +S/{v['ganancia']:.0f}{cliente_str}")
+            lineas.append(f"  {fecha_fmt}  {v['cantidad']} ud  S/{v['precio_venta']:.0f}  +S/{v['ganancia']:.0f}{cliente_str}")
     else:
         lineas += ["", "Sin ventas registradas aún."]
     return "\n".join(lineas)
