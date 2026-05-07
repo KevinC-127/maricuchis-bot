@@ -104,7 +104,7 @@ def _sync_get_stats() -> dict:
                 costo_linea = costo_u * cantidad
                 
                 total_precio_venta += ingreso_linea
-                total_precio_costo += costo_linea
+                total_precio_costo += costo_linea if es_completada else 0
                 total_uds_vendidas += cantidad
                 total_descuentos += descuento
                 num_ventas += 1
