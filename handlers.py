@@ -2073,7 +2073,7 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
     )
 
 async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _reply(update, "Calculando resumen financiero...")
+    await _reply(update, "📊 Calculando resumen financiero...")
     prendas = await fetch_inventario_completo()
     if prendas is None:
         await _reply(update, "Error al consultar Notion.")
@@ -2091,49 +2091,82 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     valor_stock_rest = sum(p["valor_restante"] for p in prendas)
     ganancia_pot     = sum(p["stock"] * p["ganancia_u"] for p in prendas)
     total_invertido  = sum(p["costo"] for p in prendas)
-    margen_prom = round(sum(p["margen"] for p in prendas) / len(prendas), 1) if prendas else 0
-    top_margen   = sorted(prendas, key=lambda p: p["margen"], reverse=True)[:3]
-    stock_bajo   = [p for p in prendas if 0 < p["stock"] <= 3]
+    stock_bajo       = [p for p in prendas if 0 < p["stock"] <= 3]
 
-    # Datos REALES de ventas (consulta BD Ventas, no estimación)
-    ventas_real = await fetch_resumen_ventas_real()
-    total_vendidas = ventas_real["uds"]
-    ingreso_total  = ventas_real["ingresos"]
-    ganancia_total = ventas_real["ganancia"]
-    roi = round(ganancia_total / total_invertido * 100, 1) if total_invertido > 0 else 0
+    # Datos REALES de ventas (consulta BD Ventas)
+    v = await fetch_resumen_ventas_real()
+
+    # ROI real (ganancia neta / inversión total)
+    roi = round(v["ganancia"] / total_invertido * 100, 1) if total_invertido > 0 else 0
+    # % inversión recuperada
+    recuperado_pct = round(v["ingresos"] / total_invertido * 100, 1) if total_invertido > 0 else 0
 
     lineas = [
-        "Resumen financiero — Maricuchis Store\n",
-        f"Prendas en inventario: {total_prendas}",
-        f"  Disponibles:   {disponibles}",
-        f"  Stock limitado:{limitadas}",
-        f"  Agotadas:      {agotadas}\n",
-        "LO QUE YA VENDISTE (datos reales)",
-        f"  Unidades vendidas:  {total_vendidas} uds",
-        f"  Ingresos generados: S/{ingreso_total:.0f}",
-        f"  Ganancia obtenida:  S/{ganancia_total:.0f}",
-        f"  ROI sobre inversión:{roi}%\n",
-        "LO QUE AÚN TIENES",
-        f"  Inversión en stock: S/{inversion_rest:.0f}",
-        f"  Valor venta stock:  S/{valor_stock_rest:.0f}",
-        f"  Ganancia potencial: S/{ganancia_pot:.0f}\n",
-        "EFICIENCIA",
-        f"  Total invertido:    S/{total_invertido:.0f}",
-        f"  Margen promedio:    {margen_prom}%\n",
-        "TOP 3 MEJOR MARGEN",
+        "📊 *Resumen Financiero — Maricuchis Store*\n",
+
+        "━━━ 📦 INVENTARIO ━━━",
+        f"Prendas: {total_prendas} ({disponibles} disponibles, {limitadas} limitado, {agotadas} agotadas)\n",
+
+        "━━━ 💵 VENTAS REALES ━━━",
+        f"Total de ventas: {v['num_ventas']}",
+        f"Unidades vendidas: {v['uds']} uds",
+        f"Ingresos cobrados: S/{v['ingresos']:.0f}",
+        f"Ganancia bruta: S/{v['ganancia']:.0f}",
+        f"Descuentos otorgados: -S/{v['descuentos']:.0f}",
     ]
-    for i, p in enumerate(top_margen, 1):
-        lineas.append(f"  {i}. {p['nombre']} — {p['margen']}% (S/{p['ganancia_u']:.0f}/ud)")
+    if v["pendientes"] > 0:
+        lineas.append(f"⏳ Ventas pendientes: {v['pendientes']}")
+    
+    lineas += [
+        "",
+        "━━━ 📅 VENTAS POR PERÍODO ━━━",
+        f"Hoy:     S/{v['hoy_ing']:.0f} ingreso → S/{v['hoy_gan']:.0f} ganancia",
+        f"Semana:  S/{v['semana_ing']:.0f} ingreso → S/{v['semana_gan']:.0f} ganancia",
+        f"Mes:     S/{v['mes_ing']:.0f} ingreso → S/{v['mes_gan']:.0f} ganancia",
+    ]
+
+    if v["gastos"] > 0:
+        lineas += [
+            "",
+            "━━━ 💸 GASTOS ━━━",
+            f"Total gastos: S/{v['gastos']:.0f}",
+            f"🟢 Ganancia NETA (ganancia - gastos): S/{v['ganancia_neta']:.0f}",
+        ]
+
+    lineas += [
+        "",
+        "━━━ 📈 RENDIMIENTO ━━━",
+        f"Total invertido: S/{total_invertido:.0f}",
+        f"Recuperado: S/{v['ingresos']:.0f} ({recuperado_pct}%)",
+        f"ROI: {roi}%",
+    ]
+
+    lineas += [
+        "",
+        "━━━ 🏪 STOCK RESTANTE ━━━",
+        f"Inversión en stock: S/{inversion_rest:.0f}",
+        f"Valor de venta: S/{valor_stock_rest:.0f}",
+        f"Ganancia potencial: S/{ganancia_pot:.0f}",
+    ]
+
+    if v["top_prenda"]:
+        lineas += [
+            "",
+            "━━━ 🏆 MÁS VENDIDA ━━━",
+            f"{v['top_prenda']} — {v['top_prenda_uds']} uds vendidas",
+        ]
+
     if stock_bajo:
-        lineas += ["", "⚡ ATENCIÓN — STOCK BAJO (reponer pronto)"]
+        lineas += ["", "⚡ STOCK BAJO"]
         for p in stock_bajo:
-            lineas.append(f"  {p['nombre']}: solo {p['stock']} uds")
+            lineas.append(f"  • {p['nombre']}: {p['stock']} uds")
+
     teclado = InlineKeyboardMarkup([
         [InlineKeyboardButton("⬅️ Volver", callback_data="menu_ganancias")],
         [InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")],
     ])
     msg = update.message or update.callback_query.message
-    await msg.reply_text("\n".join(lineas), reply_markup=teclado)
+    await msg.reply_text("\n".join(lineas), reply_markup=teclado, parse_mode="Markdown")
 
 async def cmd_por_margen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _reply(update, "Calculando ranking por margen...")

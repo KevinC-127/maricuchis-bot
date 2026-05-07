@@ -223,13 +223,31 @@ async def fetch_resumen_ventas_real(*args, **kwargs):
     return await asyncio.to_thread(functools.partial(_sync_fetch_resumen_ventas_real, *args, **kwargs))
 
 def _sync_fetch_resumen_ventas_real() -> dict:
-    """Consulta la BD de Ventas real para obtener ingresos, ganancias y unidades REALES."""
+    """Consulta la BD de Ventas real para obtener datos financieros completos."""
+    from datetime import datetime, timedelta
+    import pytz
+    tz_lima = pytz.timezone('America/Lima')
+    hoy = datetime.now(tz_lima).date()
+    inicio_semana = hoy - timedelta(days=hoy.weekday())
+    inicio_mes = hoy.replace(day=1)
+
     if not NOTION_VENTAS_ID:
-        return {"uds": 0, "ingresos": 0, "ganancia": 0}
+        return {"uds": 0, "ingresos": 0, "ganancia": 0, "descuentos": 0,
+                "pendientes": 0, "completadas": 0, "num_ventas": 0,
+                "hoy_gan": 0, "semana_gan": 0, "mes_gan": 0,
+                "hoy_ing": 0, "semana_ing": 0, "mes_ing": 0,
+                "top_prenda": "", "top_prenda_uds": 0}
     url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
     total_uds = 0
     total_ingresos = 0
     total_ganancia = 0
+    total_descuentos = 0
+    pendientes = 0
+    completadas = 0
+    num_ventas = 0
+    hoy_gan = 0; semana_gan = 0; mes_gan = 0
+    hoy_ing = 0; semana_ing = 0; mes_ing = 0
+    prendas_vendidas = {}
     cursor = None
     while True:
         payload = {"page_size": 100}
@@ -244,17 +262,79 @@ def _sync_fetch_resumen_ventas_real() -> dict:
             cantidad = props.get("Cantidad", {}).get("number", 0) or 0
             ganancia = props.get("Ganancia", {}).get("number", 0) or 0
             costo_u_v = props.get("Costo unitario", {}).get("number", 0) or 0
-            # Calcular ingresos reales desde ganancia + costo (fiable siempre)
+            descuento = props.get("Descuento", {}).get("number", 0) or 0
+            estado_sel = props.get("Estado", {}).get("select") or {}
+            estado = estado_sel.get("name", "Completado")
+            fecha_d = (props.get("Fecha", {}).get("date") or {}).get("start", "")
+            prenda_rt = props.get("Prenda", {}).get("rich_text", [])
+            prenda_nom = prenda_rt[0]["text"]["content"] if prenda_rt else ""
+
+            ingreso_linea = ganancia + (costo_u_v * cantidad)
             total_uds += cantidad
-            total_ingresos += ganancia + (costo_u_v * cantidad)
+            total_ingresos += ingreso_linea
             total_ganancia += ganancia
+            total_descuentos += descuento
+            num_ventas += 1
+
+            if estado == "Pendiente":
+                pendientes += 1
+            else:
+                completadas += 1
+
+            # Conteo por prenda
+            if prenda_nom:
+                prendas_vendidas[prenda_nom] = prendas_vendidas.get(prenda_nom, 0) + cantidad
+
+            # Periodos
+            if fecha_d:
+                try:
+                    fecha_venta = datetime.strptime(fecha_d[:10], "%Y-%m-%d").date()
+                    if fecha_venta == hoy:
+                        hoy_gan += ganancia
+                        hoy_ing += ingreso_linea
+                    if fecha_venta >= inicio_semana:
+                        semana_gan += ganancia
+                        semana_ing += ingreso_linea
+                    if fecha_venta >= inicio_mes:
+                        mes_gan += ganancia
+                        mes_ing += ingreso_linea
+                except ValueError:
+                    pass
         if not data.get("has_more"):
             break
         cursor = data.get("next_cursor")
+
+    # Top prenda más vendida
+    top_prenda = ""
+    top_prenda_uds = 0
+    if prendas_vendidas:
+        top_prenda = max(prendas_vendidas, key=prendas_vendidas.get)
+        top_prenda_uds = prendas_vendidas[top_prenda]
+
+    # Gastos totales
+    total_gastos = 0
+    if NOTION_GASTOS_ID:
+        gas_url = f"https://api.notion.com/v1/databases/{NOTION_GASTOS_ID}/query"
+        r = requests.post(gas_url, headers=NOTION_HEADERS, json={"page_size": 100}, timeout=15)
+        if r.status_code == 200:
+            for page in r.json().get("results", []):
+                monto = page["properties"].get("Monto", {}).get("number", 0) or 0
+                total_gastos += monto
+
     return {
         "uds": total_uds,
         "ingresos": round(total_ingresos, 2),
         "ganancia": round(total_ganancia, 2),
+        "descuentos": round(total_descuentos, 2),
+        "gastos": round(total_gastos, 2),
+        "ganancia_neta": round(total_ganancia - total_gastos, 2),
+        "pendientes": pendientes,
+        "completadas": completadas,
+        "num_ventas": num_ventas,
+        "hoy_gan": round(hoy_gan, 2), "hoy_ing": round(hoy_ing, 2),
+        "semana_gan": round(semana_gan, 2), "semana_ing": round(semana_ing, 2),
+        "mes_gan": round(mes_gan, 2), "mes_ing": round(mes_ing, 2),
+        "top_prenda": top_prenda, "top_prenda_uds": top_prenda_uds,
     }
 
 async def fetch_inventario_completo(*args, **kwargs):
