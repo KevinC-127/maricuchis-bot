@@ -493,15 +493,29 @@ async def obtener_clientes_previos():
 def _sync_obtener_clientes_previos() -> list:
     if not NOTION_VENTAS_ID: return []
     url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
-    payload = {"page_size": 100}
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
-    if r.status_code != 200: return []
-    
     clientes = set()
-    for res in r.json().get("results", []):
-        c_rt = res["properties"].get("Cliente", {}).get("rich_text", [])
-        if c_rt:
-            clientes.add(c_rt[0]["text"]["content"].strip())
+    cursor = None
+    while True:
+        payload = {"page_size": 100}
+        if cursor:
+            payload["start_cursor"] = cursor
+            
+        try:
+            r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            for res in data.get("results", []):
+                c_rt = res["properties"].get("Cliente", {}).get("rich_text", [])
+                if c_rt:
+                    clientes.add(c_rt[0]["text"]["content"].strip())
+            
+            if not data.get("has_more"):
+                break
+            cursor = data.get("next_cursor")
+        except:
+            break
+            
     return sorted(list(clientes))
 
 

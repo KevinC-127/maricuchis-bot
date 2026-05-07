@@ -1016,32 +1016,7 @@ async def venta_recibir_fecha_manual(update: Update, context: ContextTypes.DEFAU
         return VENTA_FECHA
 
 
-async def obtener_clientes_previos(*args, **kwargs):
-    import asyncio
-    import functools
-    return await asyncio.to_thread(functools.partial(_sync_obtener_clientes_previos, *args, **kwargs))
 
-def _sync_obtener_clientes_previos() -> list:
-    """Obtiene lista de clientes únicos registrados en la BD de ventas."""
-    if not NOTION_VENTAS_ID:
-        return []
-    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
-    payload = {"page_size": 100, "sorts": [{"property": "Fecha", "direction": "descending"}]}
-    clientes = set()
-    try:
-        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
-        if r.status_code != 200:
-            return []
-        for page in r.json().get("results", []):
-            props = page.get("properties", {})
-            cliente_r = props.get("Cliente", {}).get("rich_text", [])
-            if cliente_r:
-                nombre = cliente_r[0]["text"]["content"].strip()
-                if nombre:
-                    clientes.add(nombre)
-    except Exception:
-        return []
-    return sorted(clientes)
 
 async def venta_pedir_cliente(msg_obj, context, pagina=0):
     clientes_prev = context.user_data.get("clientes_previos")
