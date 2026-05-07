@@ -110,6 +110,8 @@ def _sync_get_stats() -> dict:
                 mes = full_fecha[:7]
                 prenda_rt = props.get("Prenda", {}).get("rich_text", [])
                 prenda_nom = prenda_rt[0]["text"]["content"] if prenda_rt else ""
+                cliente_rt = props.get("Cliente", {}).get("rich_text", [])
+                cliente_nom = cliente_rt[0]["text"]["content"] if cliente_rt else "Desconocido"
                 
                 es_completada = estado != "Pendiente"
                 ganancia_efectiva = ganancia if es_completada else 0
@@ -138,16 +140,18 @@ def _sync_get_stats() -> dict:
                 
                 if full_fecha:
                     if full_fecha not in ventas_por_dia:
-                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0, "costo": 0, "ventas": 0, "prendas": {}}
+                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0, "costo": 0, "ventas": 0, "detalle": []}
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
                     ventas_por_dia[full_fecha]["uds"] += cantidad
                     ventas_por_dia[full_fecha]["ventas"] += 1
                     if prenda_nom:
-                        if prenda_nom not in ventas_por_dia[full_fecha]["prendas"]:
-                            ventas_por_dia[full_fecha]["prendas"][prenda_nom] = 0
-                        ventas_por_dia[full_fecha]["prendas"][prenda_nom] += cantidad
+                        ventas_por_dia[full_fecha]["detalle"].append({
+                            "nombre": prenda_nom,
+                            "cliente": cliente_nom,
+                            "uds": cantidad
+                        })
 
             if not data.get("has_more"):
                 break

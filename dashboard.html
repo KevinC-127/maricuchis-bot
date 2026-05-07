@@ -181,11 +181,17 @@ function calculateAverages() {
   // Renderear Galería
   let prendasVendidas = {};
   days.forEach(d => {
-      const pDia = appData.ventas_por_dia[d].prendas;
-      if (pDia) {
-          for (let p in pDia) {
-              prendasVendidas[p] = (prendasVendidas[p] || 0) + pDia[p];
-          }
+      const detalle = appData.ventas_por_dia[d].detalle;
+      if (detalle) {
+          detalle.forEach(v => {
+              if (!prendasVendidas[v.nombre]) {
+                  prendasVendidas[v.nombre] = {uds: 0, clientes: new Set()};
+              }
+              prendasVendidas[v.nombre].uds += v.uds;
+              if (v.cliente && v.cliente !== "Desconocido") {
+                  prendasVendidas[v.nombre].clientes.add(v.cliente);
+              }
+          });
       }
   });
   
@@ -197,9 +203,18 @@ function calculateAverages() {
   
   let galleryHtml = '';
   // Ordenar por cantidad vendida (mayor a menor)
-  const prendasSorted = Object.entries(prendasVendidas).sort((a, b) => b[1] - a[1]);
+  const prendasSorted = Object.entries(prendasVendidas).sort((a, b) => b[1].uds - a[1].uds);
   
-  for (let [nombre, uds] of prendasSorted) {
+  for (let [nombre, info] of prendasSorted) {
+      const uds = info.uds;
+      const clientesArr = Array.from(info.clientes);
+      let clientesStr = "";
+      if (clientesArr.length > 0) {
+          clientesStr = clientesArr.length > 2 ? `${clientesArr[0]}, ${clientesArr[1]} y ${clientesArr.length - 2} más` : clientesArr.join(", ");
+      } else {
+          clientesStr = "Sin Cliente";
+      }
+
       const fotoUrl = appData.fotos_map && appData.fotos_map[nombre] ? appData.fotos_map[nombre] : '';
       const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;';
       const fallbackIcon = fotoUrl ? '' : '<span style="font-size:2rem; opacity:0.2;">👗</span>';
@@ -213,7 +228,10 @@ function calculateAverages() {
               </div>
           </div>
           <div style="padding: 10px;">
-              <div style="font-size: 0.75rem; font-weight: 600; color: #fff; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${nombre}">${nombre}</div>
+              <div style="font-size: 0.75rem; font-weight: 600; color: #fff; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px;" title="${nombre}">${nombre}</div>
+              <div style="font-size: 0.65rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px;" title="${clientesStr}">
+                  <span>👤</span> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${clientesStr}</span>
+              </div>
           </div>
       </div>`;
   }
