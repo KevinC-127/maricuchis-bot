@@ -22,6 +22,7 @@ def _sync_get_stats() -> dict:
     total_prendas = 0
     stock_stats = {"Disponible": 0, "Stock bajo": 0, "Agotado": 0}
     top_inventario = []
+    fotos_map = {}
     inv_url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
     cursor = None
     while True:
@@ -40,6 +41,18 @@ def _sync_get_stats() -> dict:
             costo_u = props.get("Costo Unitario", {}).get("number", 0) or 0
             precio = props.get("Precio", {}).get("number", 0) or 0
             total_prendas += 1
+            
+            foto_url = ""
+            foto_files = props.get("Foto", {}).get("files", [])
+            if foto_files:
+                if foto_files[0].get("file"): foto_url = foto_files[0]["file"]["url"]
+                elif foto_files[0].get("external"): foto_url = foto_files[0]["external"]["url"]
+            if not foto_url and page.get("cover"):
+                cover = page["cover"]
+                if cover.get("file"): foto_url = cover["file"]["url"]
+                elif cover.get("external"): foto_url = cover["external"]["url"]
+                
+            fotos_map[nombre] = foto_url
             
             # Stock Status
             if stock == 0: stock_stats["Agotado"] += 1
@@ -125,12 +138,16 @@ def _sync_get_stats() -> dict:
                 
                 if full_fecha:
                     if full_fecha not in ventas_por_dia:
-                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0, "costo": 0, "ventas": 0}
+                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0, "costo": 0, "ventas": 0, "prendas": {}}
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
                     ventas_por_dia[full_fecha]["uds"] += cantidad
                     ventas_por_dia[full_fecha]["ventas"] += 1
+                    if prenda_nom:
+                        if prenda_nom not in ventas_por_dia[full_fecha]["prendas"]:
+                            ventas_por_dia[full_fecha]["prendas"][prenda_nom] = 0
+                        ventas_por_dia[full_fecha]["prendas"][prenda_nom] += cantidad
 
             if not data.get("has_more"):
                 break
@@ -181,6 +198,7 @@ def _sync_get_stats() -> dict:
         "gastos_lista":     gastos_lista[:10],
         "ventas_por_mes":   {m: ventas_por_mes[m] for m in meses_sorted},
         "ventas_por_dia":   {d: ventas_por_dia[d] for d in dias_sorted},
+        "fotos_map":        fotos_map,
     }
 
 # ============================================================
