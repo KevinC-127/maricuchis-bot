@@ -219,8 +219,12 @@ function calculateAverages() {
       const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;';
       const fallbackIcon = fotoUrl ? '' : '<span style="font-size:2rem; opacity:0.2;">👗</span>';
       
+      const clientesCompletos = clientesArr.length > 0 ? clientesArr.join(", ") : "Sin Cliente";
+      const escapedNombre = nombre.replace(/'/g, "\\'").replace(/"/g, '\\"');
+      const escapedClientes = clientesCompletos.replace(/'/g, "\\'").replace(/"/g, '\\"');
+      
       galleryHtml += `
-      <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative;">
+      <div onclick="alert('Prenda: ${escapedNombre}\\nVendidos: ${uds} uds\\nClientes: ${escapedClientes}')" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative; cursor: pointer;">
           <div style="width: 100%; aspect-ratio: 1/1; ${bgImg}">
               ${fallbackIcon}
               <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: #fff; font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
