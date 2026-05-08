@@ -28,21 +28,21 @@ def teclado_lista_prendas(prendas: list, accion: str, pagina: int = 0, por_pagin
 def teclado_menu_principal() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("📸 Registrar prenda", callback_data="menu_nueva_menu"),
-            InlineKeyboardButton("💰 Ventas",           callback_data="menu_ventas_sub"),
+            InlineKeyboardButton("📸 Registrar", callback_data="menu_nueva_menu"),
+            InlineKeyboardButton("💰 Ventas",    callback_data="menu_ventas_sub"),
         ],
         [
-            InlineKeyboardButton("🔍 Consultar prenda", callback_data="menu_stock"),
-            InlineKeyboardButton("📋 Inventario",        callback_data="menu_inventario_sub"),
+            InlineKeyboardButton("🔍 Consultar", callback_data="menu_stock"),
+            InlineKeyboardButton("📋 Inventario", callback_data="menu_inventario_sub"),
         ],
         [
-            InlineKeyboardButton("💰 Ganancias",         callback_data="menu_ganancias"),
-            InlineKeyboardButton("💸 Gastos",            callback_data="menu_gasto"),
+            InlineKeyboardButton("💰 Ganancias",  callback_data="menu_ganancias"),
+            InlineKeyboardButton("💸 Gastos",     callback_data="menu_gasto"),
         ],
         [
-            InlineKeyboardButton("⚖️ Comparar prendas", callback_data="menu_comparar"),
+            InlineKeyboardButton("⚖️ Comparar",   callback_data="menu_comparar"),
         ],
-        [InlineKeyboardButton("❓ Ayuda",                 callback_data="menu_ayuda")],
+        [InlineKeyboardButton("❓ Ayuda",         callback_data="menu_ayuda")],
     ])
 
 def teclado_submenu_ventas() -> InlineKeyboardMarkup:
