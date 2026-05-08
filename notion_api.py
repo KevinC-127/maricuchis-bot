@@ -491,6 +491,7 @@ def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia,
     return True
 
 async def crear_boleto_notion(*args, **kwargs):
+    import asyncio
     import functools
     return await asyncio.to_thread(functools.partial(_sync_crear_boleto_notion, *args, **kwargs))
 
