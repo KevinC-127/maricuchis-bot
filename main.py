@@ -303,14 +303,6 @@ def main():
     app.add_handler(comparar_handler)
     app.add_handler(boletos_handler)
 
-    async def cmd_migrar_boletos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("⏳ Iniciando migración de boletos retroactivos...\nEsto puede tardar unos segundos, por favor espera.")
-        from notion_api import migrar_boletos_retroactivos
-        res = await migrar_boletos_retroactivos()
-        await update.message.reply_text(f"✅ {res}")
-
-    app.add_handler(CommandHandler("migrarboletos", cmd_migrar_boletos))
-
     # ConversationHandler — Eliminar Venta
     eliminar_venta_handler = ConversationHandler(
         entry_points=[
