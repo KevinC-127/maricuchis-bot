@@ -210,7 +210,7 @@ def _sync_get_stats() -> dict:
         "num_ventas":       num_ventas,
         "pendientes":       pendientes,
         "stock_stats":      stock_stats,
-        "top_inventario":   top_inventario[:8],
+        "top_inventario":   top_inventario,
         "top_vendidas":     [{"nombre": n, "uds": u} for n, u in top_vendidas],
         "gastos_lista":     gastos_lista[:10],
         "ventas_por_mes":   {m: ventas_por_mes[m] for m in meses_sorted},

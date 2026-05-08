@@ -429,7 +429,7 @@ function updateUI(d){
   },{scales:{y:{ticks:{callback:v=>'S/'+v}},x:{grid:{display:false}}},plugins:{tooltip:{callbacks:{afterBody:function(ctx){const m=months[ctx[0].dataIndex];const mm=d.ventas_por_mes[m];return 'Uds: '+mm.uds+' | Ventas: '+mm.ventas+'\nDescuentos: S/'+Math.round(mm.descuentos);}}}}});
 
   // Tables
-  document.getElementById('invTable').innerHTML=d.top_inventario.map(p=>`<tr><td>${p.nombre}</td><td><b>${p.stock}</b></td><td><span class="tag tag-gold">${S(p.valor)}</span></td></tr>`).join('');
+  document.getElementById('invTable').innerHTML=d.top_inventario.slice(0, 8).map(p=>`<tr><td>${p.nombre}</td><td><b>${p.stock}</b></td><td><span class="tag tag-gold">${S(p.valor)}</span></td></tr>`).join('');
   if(d.gastos_lista&&d.gastos_lista.length>0){document.getElementById('gastosTable').innerHTML=d.gastos_lista.map(g=>`<tr><td>${g.nombre}</td><td><span class="tag tag-red">${S(g.monto)}</span></td></tr>`).join('');document.getElementById('gastosTotal').innerHTML='<b>Total: '+S(d.gastos)+'</b>';}
   else{document.getElementById('gastosTable').innerHTML='<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin gastos</td></tr>';}
   document.getElementById('mesTable').innerHTML=months.map(m=>{const mm=d.ventas_por_mes[m];const p=m.split('-');return `<tr><td>${p[1]}/${p[0]}</td><td>${mm.ventas} (${mm.uds} uds)</td><td><span class="tag tag-green">${Sn(mm.ganancia)}</span></td></tr>`;}).join('');
