@@ -40,6 +40,12 @@ def _sync_get_stats() -> dict:
             stock = props.get("Stock", {}).get("number", 0) or 0
             costo_u = props.get("Costo Unitario", {}).get("number", 0) or 0
             precio = props.get("Precio", {}).get("number", 0) or 0
+            
+            tienda_rt = props.get("Tienda", {}).get("rich_text", [])
+            tienda = tienda_rt[0]["text"]["content"] if tienda_rt else "Sin tienda"
+            fecha_d = props.get("Fecha Compra", {}).get("date") or {}
+            fecha = fecha_d.get("start", "1970-01-01")
+            
             total_prendas += 1
             
             foto_url = ""
@@ -55,16 +61,23 @@ def _sync_get_stats() -> dict:
             fotos_map[nombre] = foto_url
             
             # Stock Status
-            if stock == 0: stock_stats["Agotado"] += 1
-            elif stock <= 3: stock_stats["Stock bajo"] += 1
-            else: stock_stats["Disponible"] += 1
+            estado = "Disponible"
+            if stock == 0: 
+                stock_stats["Agotado"] += 1
+                estado = "Agotado"
+            elif stock <= 3: 
+                stock_stats["Stock bajo"] += 1
+                estado = "Stock bajo"
+            else: 
+                stock_stats["Disponible"] += 1
 
             total_stock += stock
             total_inversion += stock * costo_u
             top_inventario.append({
                 "nombre": nombre, "stock": stock,
                 "precio": precio, "costo_u": costo_u,
-                "valor": round(stock * costo_u, 2)
+                "valor": round(stock * costo_u, 2),
+                "tienda": tienda, "fecha": fecha, "estado": estado
             })
         if not data.get("has_more"):
             break

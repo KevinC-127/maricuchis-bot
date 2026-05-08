@@ -111,6 +111,19 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
       <div id="stockLegend" style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"></div>
     </div>
   </div>
+  <div class="section-title">👗 Galería del Inventario</div>
+  <div class="panel" style="margin-bottom: 20px; overflow: hidden;">
+    <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+      <label style="font-size: 0.8rem; color: rgba(255,255,255,0.6)">Agrupar por: 
+        <select id="invSort" onchange="renderInventoryGallery()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px; border-radius: 5px; outline: none; margin-left: 5px;">
+          <option value="tienda">Tienda</option>
+          <option value="fecha">Fecha agregada</option>
+        </select>
+      </label>
+    </div>
+    <div id="invGalleryContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; max-height: 400px; overflow-y: auto; padding-right: 10px;">
+    </div>
+  </div>
   <div class="section-title">📋 Tablas Detalladas</div>
   <div class="grid-3">
     <div class="panel">
@@ -156,18 +169,18 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
     from { opacity: 0; transform: scale(0.95) translateY(10px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
-#modalClientesList::-webkit-scrollbar {
+#modalClientesList::-webkit-scrollbar, #invGalleryContainer::-webkit-scrollbar {
     width: 6px;
 }
-#modalClientesList::-webkit-scrollbar-track {
+#modalClientesList::-webkit-scrollbar-track, #invGalleryContainer::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 4px;
 }
-#modalClientesList::-webkit-scrollbar-thumb {
+#modalClientesList::-webkit-scrollbar-thumb, #invGalleryContainer::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2);
     border-radius: 4px;
 }
-#modalClientesList::-webkit-scrollbar-thumb:hover {
+#modalClientesList::-webkit-scrollbar-thumb:hover, #invGalleryContainer::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
 }
 </style>
@@ -306,6 +319,57 @@ function closeModal() {
     document.getElementById('clientModal').style.display = 'none';
 }
 
+function renderInventoryGallery() {
+    if (!appData || !appData.top_inventario) return;
+    const sortBy = document.getElementById('invSort').value;
+    
+    // Sort inventory
+    let sortedInv = [...appData.top_inventario];
+    if (sortBy === 'tienda') {
+        sortedInv.sort((a, b) => a.tienda.localeCompare(b.tienda));
+    } else if (sortBy === 'fecha') {
+        sortedInv.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Newest first
+    }
+    
+    const container = document.getElementById('invGalleryContainer');
+    if (sortedInv.length === 0) {
+        container.innerHTML = '<p style="color: rgba(255,255,255,0.4); font-size: 0.8rem; grid-column: 1/-1;">No hay prendas en el inventario.</p>';
+        return;
+    }
+    
+    let html = '';
+    for (let p of sortedInv) {
+        const fotoUrl = appData.fotos_map && appData.fotos_map[p.nombre] ? appData.fotos_map[p.nombre] : '';
+        const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;';
+        const fallbackIcon = fotoUrl ? '' : '<span style="font-size:2rem; opacity:0.2;">👗</span>';
+        
+        let tagColor = 'var(--green)';
+        if (p.estado === 'Agotado') tagColor = 'var(--red)';
+        else if (p.estado === 'Stock bajo') tagColor = 'var(--gold)';
+        
+        html += `
+        <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative;">
+            <div style="width: 100%; aspect-ratio: 1/1; ${bgImg}">
+                ${fallbackIcon}
+                <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: #fff; font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="color: ${tagColor}; margin-right: 4px;">●</span>${p.stock} uds
+                </div>
+            </div>
+            <div style="padding: 10px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #fff; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px;" title="${p.nombre}">${p.nombre}</div>
+                <div style="font-size: 0.75rem; font-weight: bold; color: var(--green); margin-bottom: 4px;">S/${p.precio}</div>
+                <div style="font-size: 0.65rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px;" title="Tienda: ${p.tienda}">
+                    <span>🏪</span> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.tienda}</span>
+                </div>
+                <div style="font-size: 0.65rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px; margin-top: 2px;" title="Fecha agregada: ${p.fecha}">
+                    <span>📅</span> <span>${p.fecha}</span>
+                </div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
 function updateUI(d){
   document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleTimeString('es-PE');
   const gn=d.ganancia_neta,gb=d.ganancia_bruta;
@@ -369,6 +433,8 @@ function updateUI(d){
   if(d.gastos_lista&&d.gastos_lista.length>0){document.getElementById('gastosTable').innerHTML=d.gastos_lista.map(g=>`<tr><td>${g.nombre}</td><td><span class="tag tag-red">${S(g.monto)}</span></td></tr>`).join('');document.getElementById('gastosTotal').innerHTML='<b>Total: '+S(d.gastos)+'</b>';}
   else{document.getElementById('gastosTable').innerHTML='<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin gastos</td></tr>';}
   document.getElementById('mesTable').innerHTML=months.map(m=>{const mm=d.ventas_por_mes[m];const p=m.split('-');return `<tr><td>${p[1]}/${p[0]}</td><td>${mm.ventas} (${mm.uds} uds)</td><td><span class="tag tag-green">${Sn(mm.ganancia)}</span></td></tr>`;}).join('');
+  
+  renderInventoryGallery();
 }
 function renderChart(id,type,data,options={}){if(charts[id])charts[id].destroy();const ctx=document.getElementById(id).getContext('2d');const b={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'rgba(255,255,255,0.6)',font:{family:'Outfit',size:11}}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.5)',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.5)',font:{size:10}}}}};charts[id]=new Chart(ctx,{type,data,options:{...b,...options}});}
 loadData();setInterval(loadData,60000);
