@@ -519,6 +519,46 @@ def _sync_crear_boleto_notion(cliente: str, boletos: int, asunto: str, fecha_iso
         return False
     return True
 
+async def migrar_boletos_retroactivos():
+    import asyncio
+    return await asyncio.to_thread(_sync_migrar_boletos_retroactivos)
+
+def _sync_migrar_boletos_retroactivos():
+    from collections import defaultdict
+    from datetime import datetime, timezone
+    if not NOTION_VENTAS_ID: return "Error: Sin ID Ventas"
+    
+    ven_url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    cursor = None
+    boletos_por_cliente = defaultdict(int)
+    
+    while True:
+        payload = {"page_size": 100}
+        if cursor: payload["start_cursor"] = cursor
+        r = requests.post(ven_url, headers=NOTION_HEADERS, json=payload, timeout=20)
+        if r.status_code != 200: return f"Error API: {r.text[:100]}"
+        data = r.json()
+        for page in data.get("results", []):
+            props = page["properties"]
+            cantidad = props.get("Cantidad", {}).get("number", 0) or 0
+            estado = (props.get("Estado", {}).get("select") or {}).get("name", "")
+            cliente_rt = props.get("Cliente", {}).get("rich_text", [])
+            cliente_nom = cliente_rt[0]["text"]["content"].strip() if cliente_rt else ""
+            
+            if cliente_nom and cliente_nom.lower() != "anonimo" and cantidad > 0 and estado != "Pendiente":
+                boletos_por_cliente[cliente_nom] += cantidad
+
+        cursor = data.get("next_cursor")
+        if not cursor: break
+            
+    hoy = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    count = 0
+    for cliente, total in boletos_por_cliente.items():
+        ok = _sync_crear_boleto_notion(cliente, total, "Boletos acumulados (Retroactivo)", hoy)
+        if ok: count += 1
+            
+    return f"Se migraron {count} clientes exitosamente con boletos retroactivos."
+
 async def obtener_clientes_previos():
     import asyncio
     return await asyncio.to_thread(_sync_obtener_clientes_previos)
