@@ -125,7 +125,7 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
     </div>
   </div>
   <div class="section-title">📋 Tablas Detalladas</div>
-  <div class="grid-3">
+  <div class="grid-2">
     <div class="panel">
       <h3>📦 Top Inversión en Stock</h3>
       <p class="desc">Prendas con mayor dinero inmovilizado. Prioriza vender estas para recuperar capital.</p>
@@ -137,10 +137,17 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
       <table><thead><tr><th>Concepto</th><th>Monto</th></tr></thead><tbody id="gastosTable"></tbody></table>
       <div id="gastosTotal" style="margin-top:10px;text-align:right;font-size:.78rem;color:rgba(255,255,255,0.4)"></div>
     </div>
+  </div>
+  <div class="grid-2">
     <div class="panel">
       <h3>📅 Detalle Mensual</h3>
       <p class="desc">Resumen numérico por mes con ventas, unidades y ganancia efectiva.</p>
       <table><thead><tr><th>Mes</th><th>Ventas</th><th>Ganancia</th></tr></thead><tbody id="mesTable"></tbody></table>
+    </div>
+    <div class="panel">
+      <h3>🎟️ Top Boletos</h3>
+      <p class="desc">Clientas con mayor cantidad de boletos acumulados para sorteos.</p>
+      <table><thead><tr><th>Clienta</th><th>Boletos</th></tr></thead><tbody id="boletosTable"></tbody></table>
     </div>
   </div>
   </div>
@@ -433,6 +440,12 @@ function updateUI(d){
   if(d.gastos_lista&&d.gastos_lista.length>0){document.getElementById('gastosTable').innerHTML=d.gastos_lista.map(g=>`<tr><td>${g.nombre}</td><td><span class="tag tag-red">${S(g.monto)}</span></td></tr>`).join('');document.getElementById('gastosTotal').innerHTML='<b>Total: '+S(d.gastos)+'</b>';}
   else{document.getElementById('gastosTable').innerHTML='<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin gastos</td></tr>';}
   document.getElementById('mesTable').innerHTML=months.map(m=>{const mm=d.ventas_por_mes[m];const p=m.split('-');return `<tr><td>${p[1]}/${p[0]}</td><td>${mm.ventas} (${mm.uds} uds)</td><td><span class="tag tag-green">${Sn(mm.ganancia)}</span></td></tr>`;}).join('');
+  
+  if(d.top_boletos && d.top_boletos.length > 0) {
+      document.getElementById('boletosTable').innerHTML = d.top_boletos.slice(0, 8).map(b => `<tr><td>${b.nombre}</td><td><span class="tag tag-green" style="background:rgba(139,92,246,0.1);color:var(--purple)">${b.boletos}</span></td></tr>`).join('');
+  } else {
+      document.getElementById('boletosTable').innerHTML = '<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin boletos</td></tr>';
+  }
   
   renderInventoryGallery();
 }

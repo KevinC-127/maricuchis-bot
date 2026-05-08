@@ -8,7 +8,7 @@ import asyncio
 import pathlib
 import requests as req
 from aiohttp import web
-from config import NOTION_HEADERS, NOTION_DATABASE_ID, NOTION_VENTAS_ID, NOTION_GASTOS_ID, logger
+from config import NOTION_HEADERS, NOTION_DATABASE_ID, NOTION_VENTAS_ID, NOTION_GASTOS_ID, NOTION_BOLETOS_ID, logger
 
 PORT = int(os.environ.get("PORT", 8080))
 
@@ -190,6 +190,33 @@ def _sync_get_stats() -> dict:
                 gastos_lista.append({"nombre": nombre, "monto": round(monto, 2), "fecha": fecha_g})
     gastos_lista.sort(key=lambda x: x["monto"], reverse=True)
 
+    # ── BOLETOS ─────────────────────────────────────────────
+    boletos_por_clienta = {}
+    if NOTION_BOLETOS_ID:
+        bol_url = f"https://api.notion.com/v1/databases/{NOTION_BOLETOS_ID}/query"
+        cursor = None
+        while True:
+            payload = {"page_size": 100}
+            if cursor:
+                payload["start_cursor"] = cursor
+            r = req.post(bol_url, headers=NOTION_HEADERS, json=payload, timeout=15)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            for page in data.get("results", []):
+                props = page["properties"]
+                bols = props.get("Boletos", {}).get("number", 0) or 0
+                nom_t = props.get("Clienta", {}).get("title", [])
+                nombre = nom_t[0]["text"]["content"] if nom_t else "Desconocida"
+                if nombre not in boletos_por_clienta:
+                    boletos_por_clienta[nombre] = 0
+                boletos_por_clienta[nombre] += bols
+            cursor = data.get("next_cursor")
+            if not cursor:
+                break
+    
+    top_boletos = sorted(boletos_por_clienta.items(), key=lambda x: x[1], reverse=True)[:10]
+
     ganancia_bruta = total_precio_venta - total_precio_costo
     ganancia_neta  = ganancia_bruta - total_gastos
 
@@ -212,6 +239,7 @@ def _sync_get_stats() -> dict:
         "stock_stats":      stock_stats,
         "top_inventario":   top_inventario,
         "top_vendidas":     [{"nombre": n, "uds": u} for n, u in top_vendidas],
+        "top_boletos":      [{"nombre": n, "boletos": b} for n, b in top_boletos],
         "gastos_lista":     gastos_lista[:10],
         "ventas_por_mes":   {m: ventas_por_mes[m] for m in meses_sorted},
         "ventas_por_dia":   {d: ventas_por_dia[d] for d in dias_sorted},
