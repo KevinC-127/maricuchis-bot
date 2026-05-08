@@ -337,7 +337,10 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(
         f"🎉 *Venta Registrada con Éxito*\nEstado: {estado_pago}\nCliente: {cliente}\n\n{resumen_final}",
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menú Principal", callback_data="menu_inicio")]])
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎫 Asignar + Boletos", callback_data="menu_boletos")],
+            [InlineKeyboardButton("🏠 Menú Principal", callback_data="menu_inicio")]
+        ])
     )
     context.user_data.clear()
     return ConversationHandler.END
