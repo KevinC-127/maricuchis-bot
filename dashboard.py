@@ -128,13 +128,13 @@ def _sync_get_stats() -> dict:
                 
                 es_completada = estado != "Pendiente"
                 ganancia_efectiva = ganancia if es_completada else 0
-                ingreso_linea = (ganancia_efectiva + (costo_u * cantidad)) if es_completada else 0
-                costo_linea = costo_u * cantidad
+                costo_linea = (costo_u * cantidad) if es_completada else 0
+                ingreso_linea = (ganancia_efectiva + costo_linea) if es_completada else 0
                 
                 total_precio_venta += ingreso_linea
-                total_precio_costo += costo_linea if es_completada else 0
-                total_uds_vendidas += cantidad
-                total_descuentos += descuento
+                total_precio_costo += costo_linea
+                total_uds_vendidas += cantidad if es_completada else 0
+                total_descuentos += descuento if es_completada else 0
                 num_ventas += 1
                 if not es_completada:
                     pendientes += 1
@@ -147,9 +147,9 @@ def _sync_get_stats() -> dict:
                     ventas_por_mes[mes]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_mes[mes]["costo"] += round(costo_linea, 2)
                     ventas_por_mes[mes]["ganancia"] += round(ganancia_efectiva, 2)
-                    ventas_por_mes[mes]["uds"] += cantidad
-                    ventas_por_mes[mes]["descuentos"] += round(descuento, 2)
-                    ventas_por_mes[mes]["ventas"] += 1
+                    ventas_por_mes[mes]["uds"] += (cantidad if es_completada else 0)
+                    ventas_por_mes[mes]["descuentos"] += round((descuento if es_completada else 0), 2)
+                    ventas_por_mes[mes]["ventas"] += (1 if es_completada else 0)
                 
                 if full_fecha:
                     if full_fecha not in ventas_por_dia:
@@ -157,9 +157,9 @@ def _sync_get_stats() -> dict:
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
-                    ventas_por_dia[full_fecha]["uds"] += cantidad
-                    ventas_por_dia[full_fecha]["ventas"] += 1
-                    if prenda_nom:
+                    ventas_por_dia[full_fecha]["uds"] += (cantidad if es_completada else 0)
+                    ventas_por_dia[full_fecha]["ventas"] += (1 if es_completada else 0)
+                    if prenda_nom and es_completada:
                         ventas_por_dia[full_fecha]["detalle"].append({
                             "nombre": prenda_nom,
                             "cliente": cliente_nom,
