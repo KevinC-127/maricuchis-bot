@@ -17,6 +17,7 @@ VENTA_CLIENTE   = 35
 VENTA_FECHA     = 34
 VENTA_DESCUENTO = 36
 VENTA_PAGO      = 38
+VENTA_BOLETOS   = 39
 
 timezone_lima = pytz.timezone('America/Lima')
 
@@ -274,22 +275,73 @@ async def venta_pedir_pago(msg_obj, context):
         await msg_obj.reply_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
     return VENTA_PAGO
 
-async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def venta_recibir_pago(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     estado_pago = query.data.replace("pago_", "")
+    context.user_data["venta_pago"] = estado_pago
     
+    cliente = context.user_data["venta_cliente"]
+    carrito = context.user_data["carrito"]
+    
+    # Calcular boletos automáticos sugeridos (1 por prenda)
+    boletos_sugeridos = sum(item["cantidad"] for item in carrito)
+    context.user_data["boletos_sugeridos"] = boletos_sugeridos
+    
+    if cliente.lower() == "anonimo":
+        # Si es anonimo, no se puede asignar boletos
+        context.user_data["venta_boletos"] = 0
+        return await venta_guardar(query.message, context)
+        
+    botones = [
+        [InlineKeyboardButton(f"Automático ({boletos_sugeridos} boletos)", callback_data=f"boletos_auto")],
+        [InlineKeyboardButton("No asignar (0)", callback_data="boletos_0")]
+    ]
+    texto = f"🎫 *Asignación de Boletos*\n\n¿Cuántos boletos deseas asignar a {cliente} por esta compra?\n\nPuedes elegir Automático ({boletos_sugeridos} boletos por las {boletos_sugeridos} prendas), 0, o simplemente **escribe el número exacto** en el chat:"
+    
+    try:
+        await query.edit_message_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
+    except:
+        await query.message.reply_text(texto, reply_markup=InlineKeyboardMarkup(botones), parse_mode="Markdown")
+    return VENTA_BOLETOS
+
+async def venta_recibir_boletos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+        opcion = query.data.replace("boletos_", "")
+        if opcion == "auto":
+            context.user_data["venta_boletos"] = context.user_data.get("boletos_sugeridos", 0)
+        else:
+            context.user_data["venta_boletos"] = int(opcion)
+        return await venta_guardar(query.message, context)
+    else:
+        try:
+            context.user_data["venta_boletos"] = int(update.message.text.strip())
+            return await venta_guardar(update.message, context)
+        except ValueError:
+            await update.message.reply_text("Ingresa un número de boletos válido.")
+            return VENTA_BOLETOS
+
+async def venta_guardar(msg_obj, context: ContextTypes.DEFAULT_TYPE):
+    estado_pago = context.user_data["venta_pago"]
     carrito = context.user_data["carrito"]
     cliente = context.user_data["venta_cliente"]
     fecha = context.user_data["venta_fecha"]
     descuento_global = context.user_data["venta_descuento"]
+    boletos_asignados = context.user_data.get("venta_boletos", 0)
     
-    await query.edit_message_text("Procesando carrito y actualizando Notion...")
+    try:
+        await msg_obj.edit_message_text("Procesando carrito y actualizando Notion...")
+    except:
+        await msg_obj.reply_text("Procesando carrito y actualizando Notion...")
     
     # Repartir descuento global proporcionalmente
     desc_por_item = descuento_global / len(carrito) if len(carrito) > 0 else 0
     
     mensajes = []
+    from notion_api import crear_boleto_notion
+    
     for item in carrito:
         p = item["prenda"]
         c = item["cantidad"]
@@ -318,29 +370,30 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         if exito:
             await actualizar_stock_notion(p["id"], p["stock"] - c)
-            
-            # Auto-asignar boletos por la compra (solo si es pagada y cliente no anónimo)
-            from notion_api import crear_boleto_notion
-            if cliente and cliente.lower() != "anonimo" and c > 0 and estado_pago != "Pendiente":
-                await crear_boleto_notion(
-                    cliente=cliente,
-                    boletos=c,
-                    asunto=f"Compra de {c}x {p['nombre']}",
-                    fecha_iso=fecha
-                )
-                
             mensajes.append(f"✅ {c}x {p['nombre']} (-S/{descuento_total_fila:.1f} desc)")
         else:
             mensajes.append(f"❌ Error en {p['nombre']}")
             
+    # Asignar boletos una sola vez por toda la venta
+    boleto_msg = ""
+    if boletos_asignados > 0 and estado_pago != "Pendiente":
+        await crear_boleto_notion(
+            cliente=cliente,
+            boletos=boletos_asignados,
+            asunto=f"Compra de {len(carrito)} modelos diferentes",
+            fecha_iso=fecha
+        )
+        boleto_msg = f"\n🎟️ *Boletos asignados:* {boletos_asignados}"
+    elif boletos_asignados > 0 and estado_pago == "Pendiente":
+        boleto_msg = f"\n🎟️ *Boletos guardados:* {boletos_asignados} (Se asignarán cuando el pago se complete)"
+        # Podrías implementar lógica para guardar boletos pendientes si quieres, 
+        # pero por ahora no los registramos en la BD.
+            
     resumen_final = "\n".join(mensajes)
-    await query.message.reply_text(
-        f"🎉 *Venta Registrada con Éxito*\nEstado: {estado_pago}\nCliente: {cliente}\n\n{resumen_final}",
+    await msg_obj.reply_text(
+        f"🎉 *Venta Registrada con Éxito*\nEstado: {estado_pago}\nCliente: {cliente}{boleto_msg}\n\n{resumen_final}",
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎫 Asignar + Boletos", callback_data="menu_boletos")],
-            [InlineKeyboardButton("🏠 Menú Principal", callback_data="menu_inicio")]
-        ])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Menú Principal", callback_data="menu_inicio")]])
     )
     context.user_data.clear()
     return ConversationHandler.END
