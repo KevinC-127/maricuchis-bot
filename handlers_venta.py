@@ -318,6 +318,17 @@ async def venta_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         if exito:
             await actualizar_stock_notion(p["id"], p["stock"] - c)
+            
+            # Auto-asignar boletos por la compra (solo si es pagada y cliente no anónimo)
+            from notion_api import crear_boleto_notion
+            if cliente and cliente.lower() != "anonimo" and c > 0 and estado_pago != "Pendiente":
+                await crear_boleto_notion(
+                    cliente=cliente,
+                    boletos=c,
+                    asunto=f"Compra de {c}x {p['nombre']}",
+                    fecha_iso=fecha
+                )
+                
             mensajes.append(f"✅ {c}x {p['nombre']} (-S/{descuento_total_fila:.1f} desc)")
         else:
             mensajes.append(f"❌ Error en {p['nombre']}")
