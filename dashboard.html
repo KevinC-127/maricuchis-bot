@@ -156,6 +156,20 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
     from { opacity: 0; transform: scale(0.95) translateY(10px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
+#modalClientesList::-webkit-scrollbar {
+    width: 6px;
+}
+#modalClientesList::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+#modalClientesList::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+#modalClientesList::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
 </style>
 <script>
 const S=n=>'S/'+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -211,11 +225,11 @@ function calculateAverages() {
       if (detalle) {
           detalle.forEach(v => {
               if (!prendasVendidas[v.nombre]) {
-                  prendasVendidas[v.nombre] = {uds: 0, clientes: new Set()};
+                  prendasVendidas[v.nombre] = {uds: 0, clientes: {}};
               }
               prendasVendidas[v.nombre].uds += v.uds;
               if (v.cliente && v.cliente !== "Desconocido") {
-                  prendasVendidas[v.nombre].clientes.add(v.cliente);
+                  prendasVendidas[v.nombre].clientes[v.cliente] = (prendasVendidas[v.nombre].clientes[v.cliente] || 0) + v.uds;
               }
           });
       }
@@ -233,10 +247,11 @@ function calculateAverages() {
   
   for (let [nombre, info] of prendasSorted) {
       const uds = info.uds;
-      const clientesArr = Array.from(info.clientes);
+      const clientesArr = Object.entries(info.clientes).map(([c, u]) => u > 1 ? `${c} (${u} uds)` : c);
+      const clientesNombres = Object.keys(info.clientes);
       let clientesStr = "";
-      if (clientesArr.length > 0) {
-          clientesStr = clientesArr.length > 2 ? `${clientesArr[0]}, ${clientesArr[1]} y ${clientesArr.length - 2} más` : clientesArr.join(", ");
+      if (clientesNombres.length > 0) {
+          clientesStr = clientesNombres.length > 2 ? `${clientesNombres[0]}, ${clientesNombres[1]} y ${clientesNombres.length - 2} más` : clientesNombres.join(", ");
       } else {
           clientesStr = "Sin Cliente";
       }
@@ -245,7 +260,7 @@ function calculateAverages() {
       const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;';
       const fallbackIcon = fotoUrl ? '' : '<span style="font-size:2rem; opacity:0.2;">👗</span>';
       
-      const clientesCompletos = clientesArr.length > 0 ? clientesArr.join(", ") : "Sin Cliente";
+      const clientesCompletos = clientesArr.length > 0 ? clientesArr.join("||") : "Sin Cliente";
       const escapedNombre = nombre.replace(/'/g, "\\'").replace(/"/g, '\\"');
       const escapedClientes = clientesCompletos.replace(/'/g, "\\'").replace(/"/g, '\\"');
       
@@ -281,7 +296,7 @@ function showModal(prenda, uds, clientesStr) {
     document.getElementById('modalPrenda').textContent = prenda;
     document.getElementById('modalUds').textContent = `Vendidos en el periodo: ${uds} uds`;
     
-    let clientsHtml = clientesStr.split(', ').map(c => `<div><span style="color:var(--purple); margin-right:6px; font-weight:bold;">•</span>${c}</div>`).join('');
+    let clientsHtml = clientesStr.split('||').map(c => `<div><span style="color:var(--purple); margin-right:6px; font-weight:bold;">•</span>${c}</div>`).join('');
     document.getElementById('modalClientesList').innerHTML = clientsHtml;
     
     document.getElementById('clientModal').style.display = 'flex';
