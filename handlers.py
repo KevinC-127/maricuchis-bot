@@ -1241,6 +1241,16 @@ async def _finalizar_venta(update, context):
         cliente=cliente,
         descuento=descuento,
     )
+    
+    # Auto-asignar boletos por la compra (1 boleto por prenda)
+    from notion_api import crear_boleto_notion
+    if cliente and cliente.lower() != "anonimo" and cantidad > 0:
+        await crear_boleto_notion(
+            cliente=cliente,
+            boletos=cantidad,
+            asunto=f"Compra de {cantidad}x {prenda['nombre']}",
+            fecha_iso=fecha
+        )
     descuento_linea = f"\nDescuento:  -S/{descuento:.0f}" if descuento > 0 else ""
     msg = (
         f"✅ Venta registrada!\n\n"
@@ -2381,3 +2391,75 @@ async def cmd_nueva_prenda_menu(update: Update, context: ContextTypes.DEFAULT_TY
         await update.callback_query.edit_message_text("📸 *Registrar prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")
     else:
         await update.message.reply_text("📸 *Registrar prenda — ¿Qué deseas hacer?*", reply_markup=teclado, parse_mode="Markdown")
+
+# ============================================================
+# CONVERSATION HANDLER — BOLETOS
+# ============================================================
+from config import BOLETO_CLIENTE, BOLETO_CANTIDAD, BOLETO_ASUNTO
+from notion_api import crear_boleto_notion
+
+async def cmd_boletos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    clientes_prev = await obtener_clientes_previos()
+    context.user_data["clientes_previos"] = clientes_prev
+    teclado = teclado_lista_clientes(clientes_prev, 0)
+    await _reply(update, "🎫 Asignar Boletos\n\n¿A qué clienta deseas asignarle o restarle boletos?", reply_markup=teclado)
+    return BOLETO_CLIENTE
+
+async def boleto_recibir_cliente(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query:
+        await query.answer()
+        data = query.data
+        if data.startswith("page_cliente:"):
+            pagina = int(data.split(":")[1])
+            clientes_prev = context.user_data.get("clientes_previos", [])
+            teclado = teclado_lista_clientes(clientes_prev, pagina)
+            await query.edit_message_reply_markup(reply_markup=teclado)
+            return BOLETO_CLIENTE
+        if data == "cliente_sin_nombre":
+            await query.message.reply_text("No se puede asignar boletos a un cliente anónimo. Escribe el nombre:")
+            return BOLETO_CLIENTE
+        elif data == "cliente_nueva":
+            await query.message.reply_text("✏️ Escribe el nombre de la nueva clienta:")
+            return BOLETO_CLIENTE
+        elif data.startswith("cliente_prev_"):
+            context.user_data["boleto_cliente"] = data[len("cliente_prev_"):]
+    else:
+        context.user_data["boleto_cliente"] = update.message.text.strip()
+    
+    await _reply(update, f"👤 Clienta: {context.user_data['boleto_cliente']}\n\nEscribe el número de boletos a asignar (ej. 2) o restar (ej. -1):")
+    return BOLETO_CANTIDAD
+
+async def boleto_recibir_cantidad(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        boletos = int(update.message.text.strip())
+        if boletos == 0: raise ValueError
+    except ValueError:
+        await update.message.reply_text("Ingresa un número válido distinto de 0 (ejemplo: 2 o -1):")
+        return BOLETO_CANTIDAD
+        
+    context.user_data["boleto_cantidad"] = boletos
+    await update.message.reply_text("Escribe el asunto o motivo (ej. Compartió historia, Compra de saldo):")
+    return BOLETO_ASUNTO
+
+async def boleto_recibir_asunto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    asunto = update.message.text.strip()
+    cliente = context.user_data["boleto_cliente"]
+    boletos = context.user_data["boleto_cantidad"]
+    
+    await update.message.reply_text("Guardando...")
+    ok = await crear_boleto_notion(cliente=cliente, boletos=boletos, asunto=asunto)
+    
+    from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+    teclado_post = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎫 Registrar otro boleto", callback_data="menu_boletos")],
+        [InlineKeyboardButton("🏠 Volver al menú",        callback_data="menu_inicio")],
+    ])
+    
+    if ok:
+        await update.message.reply_text(f"✅ ¡Se registraron {boletos} boletos para {cliente}!\nAsunto: {asunto}", reply_markup=teclado_post)
+    else:
+        await update.message.reply_text("❌ Hubo un error al guardar en Notion.", reply_markup=teclado_post)
+        
+    context.user_data.clear()
+    return ConversationHandler.END

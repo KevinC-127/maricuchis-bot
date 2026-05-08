@@ -41,6 +41,7 @@ def teclado_menu_principal() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("⚖️ Comparar",   callback_data="menu_comparar"),
+            InlineKeyboardButton("🎫 Sorteo",     callback_data="menu_boletos"),
         ],
         [InlineKeyboardButton("❓ Ayuda",         callback_data="menu_ayuda")],
     ])

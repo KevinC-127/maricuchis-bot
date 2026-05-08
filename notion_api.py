@@ -490,6 +490,34 @@ def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia,
         return False
     return True
 
+async def crear_boleto_notion(*args, **kwargs):
+    import functools
+    return await asyncio.to_thread(functools.partial(_sync_crear_boleto_notion, *args, **kwargs))
+
+def _sync_crear_boleto_notion(cliente: str, boletos: int, asunto: str, fecha_iso=None) -> bool:
+    from config import NOTION_BOLETOS_ID
+    if not NOTION_BOLETOS_ID:
+        return True
+    
+    from datetime import datetime, timezone
+    fecha = fecha_iso or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    url = "https://api.notion.com/v1/pages"
+    data = {
+        "parent": {"database_id": NOTION_BOLETOS_ID},
+        "properties": {
+            "Clienta": {"title": [{"text": {"content": cliente}}]},
+            "Boletos": {"number": boletos},
+            "Asunto":  {"rich_text": [{"text": {"content": asunto}}]},
+            "Fecha":   {"date": {"start": fecha}}
+        }
+    }
+    r = requests.post(url, headers=NOTION_HEADERS, json=data, timeout=15)
+    if r.status_code not in (200, 201):
+        logger.error(f"Error Notion Boletos {r.status_code}: {r.text[:300]}")
+        return False
+    return True
+
 async def obtener_clientes_previos():
     import asyncio
     return await asyncio.to_thread(_sync_obtener_clientes_previos)

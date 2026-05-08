@@ -157,6 +157,29 @@ def main():
         per_message=False,
     )
 
+    # ConversationHandler — Boletos
+    from handlers import cmd_boletos, boleto_recibir_cliente, boleto_recibir_cantidad, boleto_recibir_asunto
+    from config import BOLETO_CLIENTE, BOLETO_CANTIDAD, BOLETO_ASUNTO
+    boletos_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler("boletos", cmd_boletos),
+            CallbackQueryHandler(cmd_boletos, pattern="^menu_boletos$"),
+        ],
+        states={
+            BOLETO_CLIENTE: [
+                CallbackQueryHandler(boleto_recibir_cliente, pattern="^cliente_sin_nombre$|^cliente_nueva$|^cliente_prev_|^page_cliente:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, boleto_recibir_cliente),
+            ],
+            BOLETO_CANTIDAD: [MessageHandler(filters.TEXT & ~filters.COMMAND, boleto_recibir_cantidad)],
+            BOLETO_ASUNTO:   [MessageHandler(filters.TEXT & ~filters.COMMAND, boleto_recibir_asunto)],
+        },
+        fallbacks=[
+            CommandHandler("cancelar", cmd_cancelar),
+            CallbackQueryHandler(fallback_menu_inicio, pattern="^menu_inicio$"),
+        ],
+        per_message=False,
+    )
+
     # ConversationHandler — Consultar prenda
     stock_handler = ConversationHandler(
         entry_points=[
@@ -278,6 +301,7 @@ def main():
     app.add_handler(eliminar_handler)
     app.add_handler(verfoto_handler)
     app.add_handler(comparar_handler)
+    app.add_handler(boletos_handler)
 
     # ConversationHandler — Eliminar Venta
     eliminar_venta_handler = ConversationHandler(
