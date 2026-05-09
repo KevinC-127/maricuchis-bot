@@ -162,11 +162,12 @@ def _sync_get_stats() -> dict:
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
                     ventas_por_dia[full_fecha]["uds"] += cantidad
                     ventas_por_dia[full_fecha]["ventas"] += 1
-                    if prenda_nom and es_completada:
+                    if prenda_nom:
                         ventas_por_dia[full_fecha]["detalle"].append({
                             "nombre": prenda_nom,
                             "cliente": cliente_nom,
-                            "uds": cantidad
+                            "uds": cantidad,
+                            "estado": estado
                         })
 
             if not data.get("has_more"):
