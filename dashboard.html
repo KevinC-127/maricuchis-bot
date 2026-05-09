@@ -450,7 +450,7 @@ function updateUI(d){
             afterBody:function(ctx){
                 const day=days[ctx[0].dataIndex];
                 const dd=d.ventas_por_dia[day];
-                return '\n📊 Resumen del día:\nTotal Prendas Movidas: '+dd.uds+' uds\nTotal Ventas Registradas: '+dd.ventas;
+                return '\n📊 Resumen del día:\nIngresos Est.: '+S(dd.ingresos_estimados)+'\nGanancia Est.: '+S(dd.ganancia_estimada)+'\nTotal Prendas Movidas: '+dd.uds+' uds\nTotal Ventas Registradas: '+dd.ventas;
             }
         }
       }
