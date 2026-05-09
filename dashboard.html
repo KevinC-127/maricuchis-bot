@@ -262,7 +262,11 @@ function calculateAverages() {
               if (v.estado === "Pendiente") prendasVendidas[v.nombre].uds_pendientes += v.uds;
               
               if (v.cliente && v.cliente !== "Desconocido") {
-                  prendasVendidas[v.nombre].clientes[v.cliente] = (prendasVendidas[v.nombre].clientes[v.cliente] || 0) + v.uds;
+                  if (!prendasVendidas[v.nombre].clientes[v.cliente]) {
+                      prendasVendidas[v.nombre].clientes[v.cliente] = {uds: 0, pendientes: 0};
+                  }
+                  prendasVendidas[v.nombre].clientes[v.cliente].uds += v.uds;
+                  if (v.estado === "Pendiente") prendasVendidas[v.nombre].clientes[v.cliente].pendientes += v.uds;
               }
           });
       }
@@ -280,7 +284,13 @@ function calculateAverages() {
   
   for (let [nombre, info] of prendasSorted) {
       const uds = info.uds;
-      const clientesArr = Object.entries(info.clientes).map(([c, u]) => u > 1 ? `${c} (${u} uds)` : c);
+      const clientesArr = Object.entries(info.clientes).map(([c, data]) => {
+          let text = data.uds > 1 ? `${c} (${data.uds} uds)` : c;
+          if (data.pendientes > 0) {
+              text += data.pendientes === data.uds ? " [PENDIENTE]" : ` [${data.pendientes} PENDIENTES]`;
+          }
+          return text;
+      });
       const clientesNombres = Object.keys(info.clientes);
       let clientesStr = "";
       if (clientesNombres.length > 0) {
@@ -331,7 +341,10 @@ function showModal(prenda, uds, clientesStr) {
     document.getElementById('modalPrenda').textContent = prenda;
     document.getElementById('modalUds').textContent = `Vendidos en el periodo: ${uds} uds`;
     
-    let clientsHtml = clientesStr.split('||').map(c => `<div><span style="color:var(--purple); margin-right:6px; font-weight:bold;">•</span>${c}</div>`).join('');
+    let clientsHtml = clientesStr.split('||').map(c => {
+        let styledC = c.replace(/\[(.*?)\]/g, '<span style="color:var(--gold); font-size:0.85em; font-weight:normal; margin-left:4px;">⏳ $1</span>');
+        return `<div style="margin-bottom:4px;"><span style="color:var(--purple); margin-right:6px; font-weight:bold;">•</span>${styledC}</div>`;
+    }).join('');
     document.getElementById('modalClientesList').innerHTML = clientsHtml;
     
     document.getElementById('clientModal').style.display = 'flex';
