@@ -156,7 +156,7 @@ def _sync_get_stats() -> dict:
                 
                 if full_fecha:
                     if full_fecha not in ventas_por_dia:
-                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ingresos_estimados": 0, "ganancia": 0, "ganancia_estimada": 0, "uds": 0, "costo": 0, "ventas": 0, "detalle": []}
+                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ingresos_estimados": 0, "ganancia": 0, "ganancia_estimada": 0, "uds": 0, "uds_pendientes": 0, "costo": 0, "ventas": 0, "detalle": []}
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_dia[full_fecha]["ingresos_estimados"] += round(ingreso_total, 2)
                     ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
@@ -164,6 +164,8 @@ def _sync_get_stats() -> dict:
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
                     ventas_por_dia[full_fecha]["uds"] += cantidad
                     ventas_por_dia[full_fecha]["ventas"] += 1
+                    if not es_completada:
+                        ventas_por_dia[full_fecha]["uds_pendientes"] += cantidad
                     if prenda_nom:
                         ventas_por_dia[full_fecha]["detalle"].append({
                             "nombre": prenda_nom,

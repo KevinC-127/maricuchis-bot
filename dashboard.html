@@ -199,6 +199,21 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
 <script>
 const S=n=>'S/'+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const Sn=n=>'S/'+Math.round(n);
+function createStripePattern(color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 8;
+    canvas.height = 8;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 8, 8);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(8, 0);
+    ctx.stroke();
+    return ctx.createPattern(canvas, 'repeat');
+}
 let charts={};
 let appData=null;
 async function loadData(){try{const r=await fetch('/api/stats');appData=await r.json();updateUI(appData);resetAverages();document.getElementById('loading').style.display='none';}catch(e){console.error(e);}}
@@ -431,10 +446,10 @@ function updateUI(d){
     labels:days.map(day=>{const p=day.split('-');return p[2]+'/'+p[1];}),
     datasets:[
       {label:'Ingresos',data:days.map(day=>d.ventas_por_dia[day].ingresos),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#3b82f6',borderWidth:2},
-      {label:'Ingresos Est.',data:days.map(day=>d.ventas_por_dia[day].ingresos_estimados),borderColor:'#60a5fa',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#60a5fa',borderWidth:2,hidden:true},
+      {label:'Ingresos Est.',data:days.map(day=>d.ventas_por_dia[day].ingresos_estimados),borderColor:'#60a5fa',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#60a5fa',borderWidth:2},
       {label:'Costo',data:days.map(day=>d.ventas_por_dia[day].costo),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#f59e0b',borderWidth:2,hidden:true},
       {label:'Ganancia',data:days.map(day=>d.ventas_por_dia[day].ganancia),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981',borderWidth:2},
-      {label:'Ganancia Est.',data:days.map(day=>d.ventas_por_dia[day].ganancia_estimada),borderColor:'#34d399',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#34d399',borderWidth:2,hidden:true},
+      {label:'Ganancia Est.',data:days.map(day=>d.ventas_por_dia[day].ganancia_estimada),borderColor:'#34d399',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#34d399',borderWidth:2},
       {label:'Unidades',data:days.map(day=>d.ventas_por_dia[day].uds),borderColor:'#8b5cf6',backgroundColor:'transparent',tension:.4,pointRadius:3,pointBackgroundColor:'#8b5cf6',borderWidth:1.5,borderDash:[5,5],yAxisID:'y1'}
     ]
   },{
@@ -447,10 +462,22 @@ function updateUI(d){
         filter: function(item) { return item.dataset.hidden !== true; },
         callbacks:{
             title: function(ctx) { return '📅 ' + ctx[0].label; },
+            labelColor: function(ctx) {
+                if (ctx.dataset.label.includes('Est.')) {
+                    return {
+                        borderColor: ctx.dataset.borderColor,
+                        backgroundColor: createStripePattern(ctx.dataset.borderColor)
+                    };
+                }
+                return {
+                    borderColor: ctx.dataset.borderColor,
+                    backgroundColor: ctx.dataset.borderColor
+                };
+            },
             afterBody:function(ctx){
                 const day=days[ctx[0].dataIndex];
                 const dd=d.ventas_por_dia[day];
-                return '\n📊 Resumen del día:\nIngresos Est.: '+S(dd.ingresos_estimados)+'\nGanancia Est.: '+S(dd.ganancia_estimada)+'\nTotal Prendas Movidas: '+dd.uds+' uds\nTotal Ventas Registradas: '+dd.ventas;
+                return '\n📊 Resumen del día:\nTotal Prendas Movidas: '+dd.uds+' uds\nTotal Ventas Registradas: '+dd.ventas+'\n⏳ Pendientes: '+dd.uds_pendientes+' uds';
             }
         }
       }
