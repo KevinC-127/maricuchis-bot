@@ -93,7 +93,7 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
   <div class="grid-2">
     <div class="panel">
       <h3>📈 Ventas Diarias</h3>
-      <p class="desc">Ingresos (azul), costo (oculto), ganancia cobrada (verde), ganancia estimada con pendientes (verde punteado) y uds (morado).</p>
+      <p class="desc">Ingresos cobrados (azul sólido), ingresos estimados (azul punteado), costo (oculto), ganancia cobrada (verde), ganancia estimada con pendientes (verde punteado) y uds totales (morado). Pasa el mouse por el gráfico para ver el detalle.</p>
       <div class="chart-container"><canvas id="lineChart"></canvas></div>
     </div>
     <div class="panel">
@@ -418,14 +418,30 @@ function updateUI(d){
     labels:days.map(day=>{const p=day.split('-');return p[2]+'/'+p[1];}),
     datasets:[
       {label:'Ingresos',data:days.map(day=>d.ventas_por_dia[day].ingresos),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#3b82f6',borderWidth:2},
+      {label:'Ingresos Est.',data:days.map(day=>d.ventas_por_dia[day].ingresos_estimados),borderColor:'#60a5fa',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#60a5fa',borderWidth:2,hidden:true},
       {label:'Costo',data:days.map(day=>d.ventas_por_dia[day].costo),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#f59e0b',borderWidth:2,hidden:true},
       {label:'Ganancia',data:days.map(day=>d.ventas_por_dia[day].ganancia),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981',borderWidth:2},
       {label:'Ganancia Est.',data:days.map(day=>d.ventas_por_dia[day].ganancia_estimada),borderColor:'#34d399',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#34d399',borderWidth:2,hidden:true},
       {label:'Unidades',data:days.map(day=>d.ventas_por_dia[day].uds),borderColor:'#8b5cf6',backgroundColor:'transparent',tension:.4,pointRadius:3,pointBackgroundColor:'#8b5cf6',borderWidth:1.5,borderDash:[5,5],yAxisID:'y1'}
     ]
   },{
+    interaction: { mode: 'index', intersect: false },
     scales:{y:{beginAtZero:true,ticks:{callback:v=>'S/'+v},position:'left'},y1:{beginAtZero:true,position:'right',grid:{display:false},ticks:{color:'rgba(139,92,246,0.5)',callback:v=>v+' uds'}}},
-    plugins:{tooltip:{callbacks:{afterBody:function(ctx){const day=days[ctx[0].dataIndex];const dd=d.ventas_por_dia[day];return 'Uds: '+dd.uds+' | Ventas: '+dd.ventas;}}}}
+    plugins:{
+      legend:{labels:{color:'rgba(255,255,255,0.6)',font:{family:'Outfit',size:11}}},
+      tooltip:{
+        backgroundColor: 'rgba(0,0,0,0.85)', titleColor: '#fff', bodyColor: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 12, usePointStyle: true, boxPadding: 6, titleFont: {size: 14, weight: 'bold'}, bodySpacing: 6,
+        filter: function(item) { return item.dataset.hidden !== true; },
+        callbacks:{
+            title: function(ctx) { return '📅 ' + ctx[0].label; },
+            afterBody:function(ctx){
+                const day=days[ctx[0].dataIndex];
+                const dd=d.ventas_por_dia[day];
+                return '\n📊 Resumen del día:\nTotal Prendas Movidas: '+dd.uds+' uds\nTotal Ventas Registradas: '+dd.ventas;
+            }
+        }
+      }
+    }
   });
 
   // Top vendidas
