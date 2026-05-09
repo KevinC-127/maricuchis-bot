@@ -160,8 +160,8 @@ def _sync_get_stats() -> dict:
                     ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
                     ventas_por_dia[full_fecha]["ganancia_estimada"] += round(ganancia, 2)
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
-                    ventas_por_dia[full_fecha]["uds"] += (cantidad if es_completada else 0)
-                    ventas_por_dia[full_fecha]["ventas"] += (1 if es_completada else 0)
+                    ventas_por_dia[full_fecha]["uds"] += cantidad
+                    ventas_por_dia[full_fecha]["ventas"] += 1
                     if prenda_nom and es_completada:
                         ventas_por_dia[full_fecha]["detalle"].append({
                             "nombre": prenda_nom,
