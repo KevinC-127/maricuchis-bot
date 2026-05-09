@@ -9,7 +9,7 @@
 <style>
 :root{--white-rgb:255,255,255;--text:#ffffff;--text-muted:rgba(var(--white-rgb),0.5);--text-light:rgba(var(--white-rgb),0.3);--gold:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--pink:#ec4899;--bg:#050505;--card:rgba(var(--white-rgb),0.03);--border:rgba(var(--white-rgb),0.08)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Outfit',sans-serif;background-color:var(--bg);background-image:radial-gradient(circle at 50% 0%,rgba(139,92,246,0.15) 0%,transparent 50%);min-height:100vh;color:var(--text);padding:20px;line-height:1.5}
+body{font-family:'Outfit',sans-serif;background-color:var(--bg);background-image:radial-gradient(circle at 50% 0%,rgba(139,92,246,0.15) 0%,transparent 50%);min-height:100vh;color:var(--text);padding:20px;line-height:1.5;transition:background-color 0.3s,color 0.3s}
 .container{max-width:1400px;margin:0 auto}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:15px}
 .header-left h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -74,6 +74,9 @@ body.light-mode {
 .light-mode .loading-overlay { background: #f4f4f9; }
 .light-mode #themeBtn { background: #fff !important; }
 .light-mode #modalClientesList { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; }
+.light-mode input[type="date"] { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.15) !important; color-scheme: light; }
+.light-mode select { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.15) !important; }
+.light-mode .card, .light-mode .panel { transition: all 0.3s; }
 </style>
 </head>
 <body>
@@ -363,14 +366,14 @@ function calculateAverages() {
       const clientesCompletos = clientesArr.length > 0 ? clientesArr.join("||") : "Sin Cliente";
       const escapedNombre = nombre.replace(/'/g, "\\'").replace(/"/g, '\\"');
       const escapedClientes = clientesCompletos.replace(/'/g, "\\'").replace(/"/g, '\\"');
-      const pendientesHtml = info.uds_pendientes > 0 ? `<div style="position: absolute; top: 8px; left: 8px; background: rgba(245, 158, 11, 0.9); backdrop-filter: blur(5px); color: var(--text); font-size: 0.7rem; font-weight: bold; padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(var(--white-rgb),0.2);">⏳ Pendiente: ${info.uds_pendientes}</div>` : '';
+      const pendientesHtml = info.uds_pendientes > 0 ? `<div style="position: absolute; top: 8px; left: 8px; background: rgba(245, 158, 11, 0.9); backdrop-filter: blur(5px); color: #fff; font-size: 0.7rem; font-weight: bold; padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);">⏳ Pendiente: ${info.uds_pendientes}</div>` : '';
       
       galleryHtml += `
       <div onclick="showModal('${escapedNombre}', ${uds}, '${escapedClientes}')" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative; cursor: pointer;">
           <div style="width: 100%; aspect-ratio: 1/1; ${bgImg}">
               ${fallbackIcon}
               ${pendientesHtml}
-              <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: var(--text); font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(var(--white-rgb),0.1);">
+              <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: #fff; font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
                   ${uds} uds
               </div>
           </div>
@@ -443,7 +446,7 @@ function renderInventoryGallery() {
         <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative;">
             <div style="width: 100%; aspect-ratio: 1/1; ${bgImg}">
                 ${fallbackIcon}
-                <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: var(--text); font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(var(--white-rgb),0.1);">
+                <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: #fff; font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
                     <span style="color: ${tagColor}; margin-right: 4px;">●</span>${p.stock} uds
                 </div>
             </div>
