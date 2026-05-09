@@ -484,6 +484,9 @@ function renderHeatmap(ventasPorDia) {
     const days = Object.keys(ventasPorDia).sort();
     if (days.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">Sin datos</p>'; return; }
     
+    // Helper to format date as YYYY-MM-DD in local timezone
+    const fmtDate = (d) => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    
     // Get all values to calculate intensity
     const values = days.map(d => ventasPorDia[d].ingresos_estimados || 0);
     const maxVal = Math.max(...values, 1);
@@ -492,8 +495,8 @@ function renderHeatmap(ventasPorDia) {
     const dateMap = {};
     days.forEach(d => { dateMap[d] = ventasPorDia[d]; });
     
-    // Generate weeks from first date to today
-    const startDate = new Date(days[0]);
+    // Generate weeks from first date to today (use T12:00 to avoid timezone boundary)
+    const startDate = new Date(days[0] + 'T12:00:00');
     const endDate = new Date();
     // Adjust start to Sunday
     startDate.setDate(startDate.getDate() - startDate.getDay());
@@ -507,12 +510,11 @@ function renderHeatmap(ventasPorDia) {
     let currentMonth = -1;
     
     while (currentDate <= endDate) {
-        const weekStart = new Date(currentDate);
         let weekHtml = '';
         let monthLabel = '';
         
         for (let dow = 0; dow < 7; dow++) {
-            const dateStr = currentDate.toISOString().split('T')[0];
+            const dateStr = fmtDate(currentDate);
             const data = dateMap[dateStr];
             const val = data ? (data.ingresos_estimados || 0) : 0;
             const intensity = maxVal > 0 ? val / maxVal : 0;
