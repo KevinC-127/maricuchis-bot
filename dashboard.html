@@ -129,6 +129,19 @@ body.light-mode {
       <div class="chart-container" style="height:260px"><canvas id="topVendidasChart"></canvas></div>
     </div>
   </div>
+  <div class="section-title">🔥 Mapa de Calor de Ventas</div>
+  <div class="panel" style="margin-bottom: 20px; overflow-x: auto;">
+    <h3>🗓️ Actividad Diaria</h3>
+    <p class="desc">Cada celda representa un día. Más intenso el color = más ventas en soles. Pasa el mouse para ver el detalle.</p>
+    <div id="heatmapContainer" style="display: flex; gap: 4px; padding: 10px 0; min-width: 700px;"></div>
+    <div id="heatmapLegend" style="display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.7rem; color: var(--text-muted);"></div>
+  </div>
+  <div class="section-title">👑 Top Clientas VIP</div>
+  <div class="panel" style="margin-bottom: 20px;">
+    <h3>🏅 Ranking de Mejores Compradoras</h3>
+    <p class="desc">Las clientas que más han comprado (ventas completadas). La corona dorada marca a la #1.</p>
+    <div id="vipContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+  </div>
   <div class="section-title">📅 Comparación Mensual y Estado del Inventario</div>
   <div class="grid-2">
     <div class="panel">
@@ -465,6 +478,132 @@ function renderInventoryGallery() {
     container.innerHTML = html;
 }
 
+function renderHeatmap(ventasPorDia) {
+    const container = document.getElementById('heatmapContainer');
+    const legend = document.getElementById('heatmapLegend');
+    const days = Object.keys(ventasPorDia).sort();
+    if (days.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">Sin datos</p>'; return; }
+    
+    // Get all values to calculate intensity
+    const values = days.map(d => ventasPorDia[d].ingresos_estimados || 0);
+    const maxVal = Math.max(...values, 1);
+    
+    // Build a map of date -> data for quick lookup
+    const dateMap = {};
+    days.forEach(d => { dateMap[d] = ventasPorDia[d]; });
+    
+    // Generate weeks from first date to today
+    const startDate = new Date(days[0]);
+    const endDate = new Date();
+    // Adjust start to Sunday
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+    
+    const dayLabels = ['', 'Lun', '', 'Mié', '', 'Vie', ''];
+    let html = '<div style="display:flex;flex-direction:column;gap:2px;margin-right:6px;padding-top:18px;">';
+    dayLabels.forEach(l => { html += `<div style="height:14px;line-height:14px;font-size:0.6rem;color:var(--text-light);text-align:right;">${l}</div>`; });
+    html += '</div>';
+    
+    let currentDate = new Date(startDate);
+    let currentMonth = -1;
+    
+    while (currentDate <= endDate) {
+        const weekStart = new Date(currentDate);
+        let weekHtml = '';
+        let monthLabel = '';
+        
+        for (let dow = 0; dow < 7; dow++) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const data = dateMap[dateStr];
+            const val = data ? (data.ingresos_estimados || 0) : 0;
+            const intensity = maxVal > 0 ? val / maxVal : 0;
+            
+            // Month label for first row
+            if (dow === 0 && currentDate.getMonth() !== currentMonth) {
+                currentMonth = currentDate.getMonth();
+                const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                monthLabel = monthNames[currentMonth];
+            }
+            
+            let bgColor;
+            if (val === 0) {
+                bgColor = isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+            } else if (intensity < 0.25) {
+                bgColor = 'rgba(16,185,129,0.3)';
+            } else if (intensity < 0.5) {
+                bgColor = 'rgba(16,185,129,0.5)';
+            } else if (intensity < 0.75) {
+                bgColor = 'rgba(16,185,129,0.7)';
+            } else {
+                bgColor = '#10b981';
+            }
+            
+            const tooltip = data ? `${dateStr}\nIngresos: ${S(data.ingresos)}\nGanancia: ${S(data.ganancia)}\nUds: ${data.uds} | Ventas: ${data.ventas}` : `${dateStr}\nSin ventas`;
+            
+            if (currentDate <= endDate) {
+                weekHtml += `<div title="${tooltip}" style="width:14px;height:14px;border-radius:3px;background:${bgColor};cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'"></div>`;
+            } else {
+                weekHtml += `<div style="width:14px;height:14px;"></div>`;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        html += `<div style="display:flex;flex-direction:column;gap:2px;">`;
+        html += `<div style="height:16px;font-size:0.6rem;color:var(--text-light);text-align:center;line-height:16px;">${monthLabel}</div>`;
+        html += weekHtml + '</div>';
+    }
+    
+    container.innerHTML = html;
+    
+    // Legend
+    const emptyColor = isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+    legend.innerHTML = `Menos <div style="display:flex;gap:3px;margin:0 4px;">
+        <div style="width:12px;height:12px;border-radius:2px;background:${emptyColor}"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.3)"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.5)"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.7)"></div>
+        <div style="width:12px;height:12px;border-radius:2px;background:#10b981"></div>
+    </div> Más — Max del periodo: ${S(maxVal)}`;
+}
+
+function renderVIP(topClientes) {
+    const container = document.getElementById('vipContainer');
+    if (!topClientes || topClientes.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">Sin datos de clientas.</p>';
+        return;
+    }
+    const maxGasto = topClientes[0].total_gastado;
+    const medals = ['👑', '🥈', '🥉'];
+    
+    let html = '';
+    topClientes.forEach((c, i) => {
+        const pct = maxGasto > 0 ? ((c.total_gastado / maxGasto) * 100).toFixed(0) : 0;
+        const medal = i < 3 ? medals[i] : `<span style="color:var(--text-light);font-size:0.8rem;">${i + 1}</span>`;
+        const isFirst = i === 0;
+        const borderColor = isFirst ? 'rgba(245,158,11,0.4)' : 'var(--border)';
+        const bgExtra = isFirst ? 'background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(236,72,153,0.05));' : '';
+        const barColor = isFirst ? 'linear-gradient(90deg, #f59e0b, #ec4899)' : 'linear-gradient(90deg, var(--purple), var(--blue))';
+        
+        html += `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;border:1px solid ${borderColor};${bgExtra}transition:all 0.3s;" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform='translateX(0)'">
+            <div style="font-size:1.4rem;min-width:32px;text-align:center;">${medal}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${c.nombre}</div>
+                    <div style="font-size:0.9rem;font-weight:700;color:${isFirst ? 'var(--gold)' : 'var(--green)'};">${S(c.total_gastado)}</div>
+                </div>
+                <div style="width:100%;height:6px;background:rgba(var(--white-rgb),0.06);border-radius:3px;overflow:hidden;">
+                    <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;transition:width 1s ease;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                    <span style="font-size:0.65rem;color:var(--text-light);">${c.uds} prendas en ${c.compras} compras</span>
+                    <span style="font-size:0.65rem;color:var(--text-light);">${pct}%</span>
+                </div>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
 function updateUI(d){
   document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleTimeString('es-PE');
   const gn=d.ganancia_neta,gb=d.ganancia_bruta;
@@ -566,6 +705,8 @@ function updateUI(d){
   }
   
   renderInventoryGallery();
+  renderHeatmap(d.ventas_por_dia);
+  renderVIP(d.top_clientes);
 }
 function renderChart(id,type,data,options={}){if(charts[id])charts[id].destroy();const ctx=document.getElementById(id).getContext('2d');const b={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tMuted(),font:{family:'Outfit',size:11}}}},scales:{x:{grid:{color:tGrid()},ticks:{color:tMuted(),font:{size:10}}},y:{grid:{color:tGrid()},ticks:{color:tMuted(),font:{size:10}}}}};charts[id]=new Chart(ctx,{type,data,options:{...b,...options}});}
 loadData();setInterval(loadData,60000);

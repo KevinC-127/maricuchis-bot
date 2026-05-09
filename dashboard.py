@@ -96,6 +96,7 @@ def _sync_get_stats() -> dict:
     ventas_por_mes = {}
     ventas_por_dia = {}
     prendas_vendidas = {}
+    clientes_data = {}
     from datetime import datetime, timedelta
     fecha_limite = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
 
@@ -143,6 +144,12 @@ def _sync_get_stats() -> dict:
                     total_ganancia_pendiente += ganancia
                 if prenda_nom:
                     prendas_vendidas[prenda_nom] = prendas_vendidas.get(prenda_nom, 0) + cantidad
+                if cliente_nom and cliente_nom != "Desconocido" and es_completada:
+                    if cliente_nom not in clientes_data:
+                        clientes_data[cliente_nom] = {"total_gastado": 0, "uds": 0, "compras": 0}
+                    clientes_data[cliente_nom]["total_gastado"] += round(ingreso_linea, 2)
+                    clientes_data[cliente_nom]["uds"] += cantidad
+                    clientes_data[cliente_nom]["compras"] += 1
                 
                 if mes:
                     if mes not in ventas_por_mes:
@@ -253,6 +260,7 @@ def _sync_get_stats() -> dict:
         "ventas_por_mes":   {m: ventas_por_mes[m] for m in meses_sorted},
         "ventas_por_dia":   {d: ventas_por_dia[d] for d in dias_sorted},
         "fotos_map":        fotos_map,
+        "top_clientes":     sorted([{"nombre": n, **d} for n, d in clientes_data.items()], key=lambda x: x["total_gastado"], reverse=True)[:10],
     }
 
 # ============================================================
