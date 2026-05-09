@@ -58,14 +58,22 @@ body.light-mode {
   --text: #1a1a2e;
   --text-muted: rgba(0,0,0,0.5);
   --text-light: rgba(0,0,0,0.3);
+  --white-rgb: 0,0,0;
   background-image: none;
+  color: var(--text);
 }
-.light-mode .card { box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.light-mode .card { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.light-mode .card:hover { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.15); }
 .light-mode table td { background: rgba(0,0,0,0.02); }
-.light-mode .header-left p { color: var(--text-muted); }
-.light-mode .kpi-pill { background: #fff; }
+.light-mode .panel { background: #ffffff; }
+.light-mode .panel h3 { color: var(--text); }
+.light-mode .panel .desc { color: var(--text-light); }
+.light-mode .kpi-pill { background: #fff; border-color: rgba(0,0,0,0.1); }
 .light-mode .kpi-pill b { color: var(--text); }
-.light-mode .last-update { color: var(--text-muted); }
+.light-mode .last-update { color: var(--text-muted); background: rgba(0,0,0,0.04); }
+.light-mode .loading-overlay { background: #f4f4f9; }
+.light-mode #themeBtn { background: #fff !important; }
+.light-mode #modalClientesList { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.08) !important; }
 </style>
 </head>
 <body>
@@ -83,7 +91,7 @@ body.light-mode {
     <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
       <label style="font-size: 0.8rem; color: var(--text-muted)">Desde: <input type="date" id="dateStart" style="background: rgba(var(--white-rgb),0.1); border: 1px solid rgba(var(--white-rgb),0.2); color: var(--text); padding: 5px; border-radius: 5px; outline: none;"></label>
       <label style="font-size: 0.8rem; color: var(--text-muted)">Hasta: <input type="date" id="dateEnd" style="background: rgba(var(--white-rgb),0.1); border: 1px solid rgba(var(--white-rgb),0.2); color: var(--text); padding: 5px; border-radius: 5px; outline: none;"></label>
-      <button onclick="calculateAverages()" style="background: var(--purple); color: var(--text); border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Calcular</button>
+      <button onclick="calculateAverages()" style="background: var(--purple); color: #fff; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Calcular</button>
       <button onclick="resetAverages()" style="background: rgba(var(--white-rgb),0.1); color: var(--text); border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: 0.2s;">Mes Actual</button>
     </div>
     <div class="grid-2" style="margin-bottom: 0;">
@@ -188,7 +196,7 @@ body.light-mode {
             <div id="modalClientesList" style="background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(var(--white-rgb),0.05); padding: 12px; max-height: 220px; overflow-y: auto; font-size: 0.85rem; color: var(--text); line-height: 1.6;"></div>
         </div>
         <div style="padding: 16px 20px; border-top: 1px solid var(--border); text-align: right; background: rgba(var(--white-rgb),0.02);">
-            <button onclick="closeModal()" style="background: var(--purple); color: var(--text); border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Aceptar</button>
+            <button onclick="closeModal()" style="background: var(--purple); color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Aceptar</button>
         </div>
     </div>
 </div>
@@ -212,23 +220,9 @@ body.light-mode {
     background: rgba(var(--white-rgb), 0.3);
 }
 
-body.light-mode {
-  --bg: #f4f4f9;
-  --card: #ffffff;
-  --border: rgba(0,0,0,0.1);
-  --text: #1a1a2e;
-  --text-muted: rgba(0,0,0,0.5);
-  --text-light: rgba(0,0,0,0.3);
-  background-image: none;
-}
-.light-mode .card { box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-.light-mode table td { background: rgba(0,0,0,0.02); }
-.light-mode .header-left p { color: var(--text-muted); }
-.light-mode .kpi-pill { background: #fff; }
-.light-mode .kpi-pill b { color: var(--text); }
-.light-mode .last-update { color: var(--text-muted); }
+/* (light-mode rules consolidated in main style block) */
 </style>
-<script>\n
+<script>
 let isLightMode = localStorage.getItem('theme') === 'light';
 if (isLightMode) document.body.classList.add('light-mode');
 function toggleTheme() {
@@ -242,8 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('themeBtn').textContent = isLightMode ? '🌙' : '☀️';
 });
 const tColor = () => isLightMode ? '#1a1a2e' : '#ffffff';
-const tMuted = () => isLightMode ? 'rgba(0,0,0,0.5)' : 'rgba(var(--white-rgb),0.5)';
-const tGrid = () => isLightMode ? 'rgba(0,0,0,0.05)' : 'rgba(var(--white-rgb),0.04)';
+const tMuted = () => isLightMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
+const tGrid = () => isLightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
 
 const S=n=>'S/'+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const Sn=n=>'S/'+Math.round(n);
