@@ -89,6 +89,33 @@ body.light-mode {
   <div class="section-title">📊 Resumen General — Solo ventas completadas</div>
   <div id="metrics" class="metrics"></div>
   <div id="kpiBar" class="kpi-bar"></div>
+  <div class="section-title">🎯 Meta Diaria</div>
+  <div class="panel" style="margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+      <div style="position: relative; width: 140px; height: 140px; flex-shrink: 0;">
+        <svg viewBox="0 0 120 120" style="width: 140px; height: 140px; transform: rotate(-90deg);">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(var(--white-rgb),0.06)" stroke-width="10"/>
+          <circle id="goalRing" cx="60" cy="60" r="52" fill="none" stroke="url(#goalGradient)" stroke-width="10" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" style="transition: stroke-dashoffset 1.5s ease;"/>
+          <defs><linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#f59e0b"/></linearGradient></defs>
+        </svg>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+          <div id="goalPct" style="font-size:1.6rem;font-weight:800;color:var(--text);">0%</div>
+          <div style="font-size:0.6rem;color:var(--text-light);text-transform:uppercase;">de la meta</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:0.8rem;color:var(--text-muted);">Meta diaria:</span>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:0.8rem;color:var(--text);">S/</span>
+            <input type="number" id="goalInput" value="200" min="1" style="width:70px;background:rgba(var(--white-rgb),0.1);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-family:inherit;font-size:0.85rem;outline:none;" onchange="updateGoal()">
+          </div>
+        </div>
+        <div id="goalDetail" style="font-size:0.8rem;color:var(--text-muted);line-height:1.8;"></div>
+      </div>
+    </div>
+  </div>
+  <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9998;"></canvas>
   <div class="section-title">⏱️ Promedios y Rango de Fechas</div>
   <div class="panel" style="margin-bottom: 20px;">
     <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
@@ -606,25 +633,158 @@ function renderVIP(topClientes) {
     container.innerHTML = html;
 }
 
+// ─── CONFETTI ENGINE ───
+let confettiFired = false;
+function launchConfetti() {
+    if (confettiFired) return;
+    confettiFired = true;
+    const canvas = document.getElementById('confettiCanvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+    const colors = ['#f59e0b','#ec4899','#8b5cf6','#10b981','#3b82f6','#ef4444'];
+    const particles = [];
+    for (let i = 0; i < 150; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height * -1,
+            w: Math.random() * 8 + 4,
+            h: Math.random() * 4 + 2,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            vy: Math.random() * 3 + 2,
+            vx: (Math.random() - 0.5) * 4,
+            rot: Math.random() * 360,
+            rotSpeed: (Math.random() - 0.5) * 10,
+            opacity: 1
+        });
+    }
+    let frame = 0;
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let alive = false;
+        particles.forEach(p => {
+            p.y += p.vy;
+            p.x += p.vx;
+            p.rot += p.rotSpeed;
+            p.vy += 0.05;
+            if (frame > 60) p.opacity -= 0.008;
+            if (p.opacity > 0 && p.y < canvas.height + 20) {
+                alive = true;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot * Math.PI / 180);
+                ctx.globalAlpha = Math.max(0, p.opacity);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+                ctx.restore();
+            }
+        });
+        frame++;
+        if (alive) requestAnimationFrame(animate);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    animate();
+}
+
+// ─── GOAL RING ───
+let dailyGoal = parseInt(localStorage.getItem('dailyGoal') || '200');
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('dailyGoal');
+    if (saved) document.getElementById('goalInput').value = saved;
+});
+function updateGoal() {
+    dailyGoal = parseInt(document.getElementById('goalInput').value) || 200;
+    localStorage.setItem('dailyGoal', dailyGoal);
+    if (appData) updateGoalRing(appData);
+}
+function updateGoalRing(d) {
+    const fmtToday = new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0')+'-'+String(new Date().getDate()).padStart(2,'0');
+    const today = d.ventas_por_dia[fmtToday];
+    const todayIngresos = today ? today.ingresos : 0;
+    const todayGanancia = today ? today.ganancia : 0;
+    const todayUds = today ? today.uds : 0;
+    const todayVentas = today ? today.ventas : 0;
+    const pct = Math.min((todayIngresos / dailyGoal) * 100, 100);
+    const circumference = 326.7;
+    const offset = circumference - (circumference * pct / 100);
+    document.getElementById('goalRing').setAttribute('stroke-dashoffset', offset);
+    document.getElementById('goalPct').textContent = Math.round(pct) + '%';
+    document.getElementById('goalDetail').innerHTML = 
+        `📈 Hoy: <b style="color:var(--green)">${S(todayIngresos)}</b> / ${S(dailyGoal)}<br>` +
+        `💰 Ganancia hoy: <b>${S(todayGanancia)}</b><br>` +
+        `📦 ${todayUds} prendas en ${todayVentas} ventas`;
+    if (todayIngresos >= dailyGoal) launchConfetti();
+}
+
+// ─── TREND ARROWS ───
+function calcTrend(ventasPorDia) {
+    const fmtDate = (d) => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const now = new Date();
+    let thisWeek = { ingresos: 0, costo: 0, ganancia: 0, uds: 0 };
+    let lastWeek = { ingresos: 0, costo: 0, ganancia: 0, uds: 0 };
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const key = fmtDate(d);
+        if (ventasPorDia[key]) {
+            thisWeek.ingresos += ventasPorDia[key].ingresos;
+            thisWeek.costo += ventasPorDia[key].costo;
+            thisWeek.ganancia += ventasPorDia[key].ganancia;
+            thisWeek.uds += ventasPorDia[key].uds;
+        }
+    }
+    for (let i = 7; i < 14; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const key = fmtDate(d);
+        if (ventasPorDia[key]) {
+            lastWeek.ingresos += ventasPorDia[key].ingresos;
+            lastWeek.costo += ventasPorDia[key].costo;
+            lastWeek.ganancia += ventasPorDia[key].ganancia;
+            lastWeek.uds += ventasPorDia[key].uds;
+        }
+    }
+    return { thisWeek, lastWeek };
+}
+function trendArrow(current, previous) {
+    if (previous === 0 && current === 0) return { arrow: '→', color: 'var(--text-light)', pct: '0%' };
+    if (previous === 0) return { arrow: '↑', color: 'var(--green)', pct: '+∞' };
+    const change = ((current - previous) / previous * 100);
+    if (change > 5) return { arrow: '↑', color: 'var(--green)', pct: '+' + Math.round(change) + '%' };
+    if (change < -5) return { arrow: '↓', color: 'var(--red)', pct: Math.round(change) + '%' };
+    return { arrow: '→', color: 'var(--gold)', pct: Math.round(change) + '%' };
+}
+
 function updateUI(d){
   document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleTimeString('es-PE');
   const gn=d.ganancia_neta,gb=d.ganancia_bruta;
   const margen=d.precio_venta>0?((gb/d.precio_venta)*100).toFixed(1):0;
   const roi=d.inversion>0?((gb/d.inversion)*100).toFixed(1):0;
   const comp=d.num_ventas-d.pendientes;
+  
+  // Trend arrows
+  const trend = calcTrend(d.ventas_por_dia);
+  const tIng = trendArrow(trend.thisWeek.ingresos, trend.lastWeek.ingresos);
+  const tGan = trendArrow(trend.thisWeek.ganancia, trend.lastWeek.ganancia);
+  const tUds = trendArrow(trend.thisWeek.uds, trend.lastWeek.uds);
+  const trendHtml = (t) => `<span style="color:${t.color};font-size:0.75rem;font-weight:700;margin-left:6px;" title="vs semana anterior">${t.arrow} ${t.pct}</span>`;
+  
   const metrics=[
-    {lbl:'Ingresos Cobrados',val:S(d.precio_venta),sub:'De ventas completadas',color:'var(--blue)',icon:'💵'},
+    {lbl:'Ingresos Cobrados',val:S(d.precio_venta),sub:'De ventas completadas',color:'var(--blue)',icon:'💵',trend:tIng},
     {lbl:'Costo de Ventas',val:S(d.precio_costo),sub:'Costo mercadería vendida',color:'var(--gold)',icon:'📦'},
-    {lbl:'Ganancia Bruta',val:S(gb),sub:'Margen: '+margen+'%',color:gb>=0?'var(--green)':'var(--red)',icon:'📈'},
+    {lbl:'Ganancia Bruta',val:S(gb),sub:'Margen: '+margen+'%',color:gb>=0?'var(--green)':'var(--red)',icon:'📈',trend:tGan},
     {lbl:'Ganancia Estimada',val:S(gb + (d.ganancia_pendiente||0)),sub:'Pendiente: '+S(d.ganancia_pendiente||0),color:'var(--green)',icon:'🔮'},
     {lbl:'Gastos Operativos',val:S(d.gastos),sub:'Pasajes, envíos, etc.',color:'var(--pink)',icon:'💸'},
     {lbl:'Ganancia Neta',val:S(gn),sub:'Bruta − gastos',color:gn>=0?'var(--green)':'var(--red)',icon:'✅'},
     {lbl:'Inversión en Stock',val:S(d.inversion),sub:d.inventario_uds+' uds / '+d.total_prendas+' prendas',color:'var(--purple)',icon:'🏪'},
   ];
-  document.getElementById('metrics').innerHTML=metrics.map(m=>`<div class="card"><div class="icon">${m.icon}</div><div class="lbl">${m.lbl}</div><div class="val" style="color:${m.color}">${m.val}</div><div class="sub">${m.sub}</div></div>`).join('');
-  const pills=[{icon:'🛒',lbl:'Ventas',val:comp},{icon:'📦',lbl:'Uds vendidas',val:d.uds_vendidas},{icon:'🎫',lbl:'Descuentos',val:Sn(d.descuentos)},{icon:'📊',lbl:'ROI',val:roi+'%'}];
+  document.getElementById('metrics').innerHTML=metrics.map(m=>`<div class="card"><div class="icon">${m.icon}</div><div class="lbl">${m.lbl}</div><div class="val" style="color:${m.color}">${m.val}${m.trend?trendHtml(m.trend):''}</div><div class="sub">${m.sub}</div></div>`).join('');
+  const pills=[{icon:'🛒',lbl:'Ventas',val:comp},{icon:'📦',lbl:'Uds vendidas',val:d.uds_vendidas + ` <span style="color:${tUds.color};font-size:0.7rem;">${tUds.arrow}${tUds.pct}</span>`},{icon:'🎫',lbl:'Descuentos',val:Sn(d.descuentos)},{icon:'📊',lbl:'ROI',val:roi+'%'}];
   if(d.pendientes>0)pills.push({icon:'⏳',lbl:'Pendientes',val:d.pendientes});
   document.getElementById('kpiBar').innerHTML=pills.map(p=>`<div class="kpi-pill">${p.icon} ${p.lbl}: <b>${p.val}</b></div>`).join('');
+  
+  // Goal ring
+  updateGoalRing(d);
 
   // Daily chart
   const days=Object.keys(d.ventas_por_dia);
