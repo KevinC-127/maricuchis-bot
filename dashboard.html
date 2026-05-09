@@ -216,7 +216,11 @@ function calculateAverages() {
   }
   
   let totalGanancia = 0;
-  days.forEach(d => { totalGanancia += appData.ventas_por_dia[d].ganancia; });
+  let totalGananciaEst = 0;
+  days.forEach(d => { 
+      totalGanancia += appData.ventas_por_dia[d].ganancia; 
+      totalGananciaEst += appData.ventas_por_dia[d].ganancia_estimada; 
+  });
   
   const d1 = new Date(days[0] + "T00:00:00");
   const d2 = new Date(days[days.length - 1] + "T00:00:00");
@@ -230,12 +234,14 @@ function calculateAverages() {
   if (diffDays < 1) diffDays = 1;
   
   const avgD = totalGanancia / diffDays;
+  const avgDEst = totalGananciaEst / diffDays;
   const avgW = avgD * 7;
+  const avgWEst = avgDEst * 7;
   const diffWeeks = (diffDays / 7).toFixed(1);
   
-  document.getElementById('avgDaily').textContent = S(avgD);
-  document.getElementById('avgWeekly').textContent = S(avgW);
-  document.getElementById('avgDailySub').textContent = `Basado en ${diffDays} días (Ganancia total: ${S(totalGanancia)})`;
+  document.getElementById('avgDaily').innerHTML = `${S(avgD)} <span style="font-size:0.8rem; color:var(--gold); opacity:0.8; margin-left:6px" title="Si se cobran todos los pendientes">Est: ${S(avgDEst)}</span>`;
+  document.getElementById('avgWeekly').innerHTML = `${S(avgW)} <span style="font-size:0.8rem; color:var(--gold); opacity:0.8; margin-left:6px" title="Si se cobran todos los pendientes">Est: ${S(avgWEst)}</span>`;
+  document.getElementById('avgDailySub').textContent = `Basado en ${diffDays} días (Cobrado: ${S(totalGanancia)} | Estimado total: ${S(totalGananciaEst)})`;
   document.getElementById('avgWeeklySub').textContent = `Equivalente a ${diffWeeks} semanas`;
   
   // Renderear Galería
@@ -387,6 +393,7 @@ function updateUI(d){
     {lbl:'Ingresos Cobrados',val:S(d.precio_venta),sub:'De ventas completadas',color:'var(--blue)',icon:'💵'},
     {lbl:'Costo de Ventas',val:S(d.precio_costo),sub:'Costo mercadería vendida',color:'var(--gold)',icon:'📦'},
     {lbl:'Ganancia Bruta',val:S(gb),sub:'Margen: '+margen+'%',color:gb>=0?'var(--green)':'var(--red)',icon:'📈'},
+    {lbl:'Ganancia Estimada',val:S(gb + (d.ganancia_pendiente||0)),sub:'Pendiente: '+S(d.ganancia_pendiente||0),color:'var(--green)',icon:'🔮'},
     {lbl:'Gastos Operativos',val:S(d.gastos),sub:'Pasajes, envíos, etc.',color:'var(--pink)',icon:'💸'},
     {lbl:'Ganancia Neta',val:S(gn),sub:'Bruta − gastos',color:gn>=0?'var(--green)':'var(--red)',icon:'✅'},
     {lbl:'Inversión en Stock',val:S(d.inversion),sub:d.inventario_uds+' uds / '+d.total_prendas+' prendas',color:'var(--purple)',icon:'🏪'},

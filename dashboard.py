@@ -90,6 +90,7 @@ def _sync_get_stats() -> dict:
     total_precio_costo = 0
     total_uds_vendidas = 0
     total_descuentos = 0
+    total_ganancia_pendiente = 0
     num_ventas = 0
     pendientes = 0
     ventas_por_mes = {}
@@ -138,6 +139,7 @@ def _sync_get_stats() -> dict:
                 num_ventas += 1
                 if not es_completada:
                     pendientes += 1
+                    total_ganancia_pendiente += ganancia
                 if prenda_nom:
                     prendas_vendidas[prenda_nom] = prendas_vendidas.get(prenda_nom, 0) + cantidad
                 
@@ -228,6 +230,7 @@ def _sync_get_stats() -> dict:
         "precio_costo":     round(total_precio_costo, 2),
         "precio_venta":     round(total_precio_venta, 2),
         "ganancia_bruta":   round(ganancia_bruta, 2),
+        "ganancia_pendiente":round(total_ganancia_pendiente, 2),
         "ganancia_neta":    round(ganancia_neta, 2),
         "gastos":           round(total_gastos, 2),
         "descuentos":       round(total_descuentos, 2),
