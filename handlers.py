@@ -2463,3 +2463,35 @@ async def boleto_recibir_asunto(update: Update, context: ContextTypes.DEFAULT_TY
         
     context.user_data.clear()
     return ConversationHandler.END
+
+# ============================================================
+# GESTIÓN DE AUDIOS (TRANSCRIPCIÓN GROQ WHISPER)
+# ============================================================
+async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await update.message.reply_text("🎙️ Escuchando audio y transcribiendo...")
+    
+    try:
+        # 1. Obtener el archivo de voz desde Telegram
+        file_id = update.message.voice.file_id
+        new_file = await context.bot.get_file(file_id)
+        
+        # 2. Descargarlo en memoria
+        import io
+        file_bytes = await new_file.download_as_bytearray()
+        
+        # 3. Transcribirlo
+        from audio_api import transcribir_audio_groq
+        texto = await transcribir_audio_groq(bytes(file_bytes))
+        
+        if not texto or texto.startswith("[Error"):
+            await msg.edit_text(f"❌ No pude entender el audio o hubo un error.\n{texto}")
+            return
+            
+        # 4. Devolver el texto al usuario
+        respuesta = f"📝 *Transcripción del audio:*\n\n_\"{texto}\"_"
+        await msg.edit_text(respuesta, parse_mode="Markdown")
+        
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error procesando audio: {e}")
+        await msg.edit_text("❌ Ocurrió un error inesperado al procesar el audio.")

@@ -306,6 +306,9 @@ def main():
     app.add_handler(verfoto_handler)
     app.add_handler(comparar_handler)
     app.add_handler(boletos_handler)
+    
+    # Manejador de audios (Notas de voz)
+    app.add_handler(MessageHandler(filters.VOICE, handle_audio))
 
     # ConversationHandler — Eliminar Venta
     eliminar_venta_handler = ConversationHandler(

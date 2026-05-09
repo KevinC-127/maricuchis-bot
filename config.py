@@ -29,6 +29,7 @@ NOTION_GASTOS_ID   = os.getenv("NOTION_GASTOS_ID", "3563d6e7c6ee8040b93cd0d14b13
 NOTION_BOLETOS_ID  = os.getenv("NOTION_BOLETOS_ID", "35a3d6e7c6ee80c6992ef2e270f7addb")
 IMGBB_API_KEY       = os.environ.get("IMGBB_API_KEY")
 ADMIN_CHAT_ID       = os.environ.get("ADMIN_CHAT_ID")
+GROQ_API_KEY        = os.environ.get("GROQ_API_KEY")
 
 if not TELEGRAM_TOKEN:
     raise ValueError("ERROR: TELEGRAM_TOKEN no encontrado en variables de entorno")
