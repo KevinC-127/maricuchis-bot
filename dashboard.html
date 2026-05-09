@@ -88,7 +88,7 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
   <div class="grid-2">
     <div class="panel">
       <h3>📈 Ventas Diarias</h3>
-      <p class="desc">Ingresos (azul), costo (amarillo oculto por defecto), ganancia (verde) y unidades (morado punteado) por día. Click en leyenda para mostrar/ocultar.</p>
+      <p class="desc">Ingresos (azul), costo (oculto), ganancia cobrada (verde), ganancia estimada con pendientes (verde punteado) y uds (morado).</p>
       <div class="chart-container"><canvas id="lineChart"></canvas></div>
     </div>
     <div class="panel">
@@ -404,6 +404,7 @@ function updateUI(d){
       {label:'Ingresos',data:days.map(day=>d.ventas_por_dia[day].ingresos),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#3b82f6',borderWidth:2},
       {label:'Costo',data:days.map(day=>d.ventas_por_dia[day].costo),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#f59e0b',borderWidth:2,hidden:true},
       {label:'Ganancia',data:days.map(day=>d.ventas_por_dia[day].ganancia),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981',borderWidth:2},
+      {label:'Ganancia Est.',data:days.map(day=>d.ventas_por_dia[day].ganancia_estimada),borderColor:'#34d399',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#34d399',borderWidth:2,hidden:true},
       {label:'Unidades',data:days.map(day=>d.ventas_por_dia[day].uds),borderColor:'#8b5cf6',backgroundColor:'transparent',tension:.4,pointRadius:3,pointBackgroundColor:'#8b5cf6',borderWidth:1.5,borderDash:[5,5],yAxisID:'y1'}
     ]
   },{

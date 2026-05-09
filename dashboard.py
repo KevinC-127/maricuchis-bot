@@ -153,9 +153,10 @@ def _sync_get_stats() -> dict:
                 
                 if full_fecha:
                     if full_fecha not in ventas_por_dia:
-                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "uds": 0, "costo": 0, "ventas": 0, "detalle": []}
+                        ventas_por_dia[full_fecha] = {"ingresos": 0, "ganancia": 0, "ganancia_estimada": 0, "uds": 0, "costo": 0, "ventas": 0, "detalle": []}
                     ventas_por_dia[full_fecha]["ingresos"] += round(ingreso_linea, 2)
                     ventas_por_dia[full_fecha]["ganancia"] += round(ganancia_efectiva, 2)
+                    ventas_por_dia[full_fecha]["ganancia_estimada"] += round(ganancia, 2)
                     ventas_por_dia[full_fecha]["costo"] += round(costo_linea, 2)
                     ventas_por_dia[full_fecha]["uds"] += (cantidad if es_completada else 0)
                     ventas_por_dia[full_fecha]["ventas"] += (1 if es_completada else 0)
