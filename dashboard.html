@@ -7,32 +7,32 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--gold:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--pink:#ec4899;--bg:#050505;--card:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.08)}
+:root{--white-rgb:255,255,255;--text:#ffffff;--text-muted:rgba(var(--white-rgb),0.5);--text-light:rgba(var(--white-rgb),0.3);--gold:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--purple:#8b5cf6;--pink:#ec4899;--bg:#050505;--card:rgba(var(--white-rgb),0.03);--border:rgba(var(--white-rgb),0.08)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Outfit',sans-serif;background-color:var(--bg);background-image:radial-gradient(circle at 50% 0%,rgba(139,92,246,0.15) 0%,transparent 50%);min-height:100vh;color:#fff;padding:20px;line-height:1.5}
+body{font-family:'Outfit',sans-serif;background-color:var(--bg);background-image:radial-gradient(circle at 50% 0%,rgba(139,92,246,0.15) 0%,transparent 50%);min-height:100vh;color:var(--text);padding:20px;line-height:1.5}
 .container{max-width:1400px;margin:0 auto}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:15px}
 .header-left h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.header-left p{color:rgba(255,255,255,0.5);font-size:.9rem}
-.last-update{background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:30px;font-size:.75rem;border:1px solid var(--border);color:rgba(255,255,255,0.6)}
-.section-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.15em;color:rgba(255,255,255,0.3);font-weight:600;margin:25px 0 12px;padding-left:5px}
+.header-left p{color:var(--text-muted);font-size:.9rem}
+.last-update{background:rgba(var(--white-rgb),0.05);padding:6px 12px;border-radius:30px;font-size:.75rem;border:1px solid var(--border);color:var(--text-muted)}
+.section-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.15em;color:var(--text-light);font-weight:600;margin:25px 0 12px;padding-left:5px}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:8px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;backdrop-filter:blur(20px);transition:all .3s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden}
-.card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)}
-.card .lbl{font-size:.62rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px}
+.card:hover{transform:translateY(-4px);border-color:rgba(var(--white-rgb),0.2);background:rgba(var(--white-rgb),0.05)}
+.card .lbl{font-size:.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px}
 .card .val{font-size:1.4rem;font-weight:700;margin-bottom:2px}
-.card .sub{font-size:.68rem;color:rgba(255,255,255,0.3)}
+.card .sub{font-size:.68rem;color:var(--text-light)}
 .card .icon{position:absolute;top:12px;right:14px;font-size:1.3rem;opacity:.3}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
 @media(max-width:1100px){.grid-2,.grid-3{grid-template-columns:1fr}}
 .panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;backdrop-filter:blur(20px)}
-.panel h3{font-size:.95rem;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.9)}
-.panel .desc{font-size:.7rem;color:rgba(255,255,255,0.35);margin-bottom:16px;line-height:1.4}
+.panel h3{font-size:.95rem;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:8px;color:rgba(var(--white-rgb),0.9)}
+.panel .desc{font-size:.7rem;color:rgba(var(--white-rgb),0.35);margin-bottom:16px;line-height:1.4}
 .chart-container{position:relative;width:100%;height:280px}
 table{width:100%;border-collapse:separate;border-spacing:0 5px}
-th{text-align:left;font-size:.6rem;color:rgba(255,255,255,0.4);text-transform:uppercase;padding:0 10px 6px;letter-spacing:.05em}
-td{background:rgba(255,255,255,0.02);padding:9px 10px;font-size:.8rem}
+th{text-align:left;font-size:.6rem;color:var(--text-muted);text-transform:uppercase;padding:0 10px 6px;letter-spacing:.05em}
+td{background:rgba(var(--white-rgb),0.02);padding:9px 10px;font-size:.8rem}
 td:first-child{border-radius:8px 0 0 8px}
 td:last-child{border-radius:0 8px 8px 0;text-align:right}
 .tag{padding:3px 8px;border-radius:6px;font-size:.65rem;font-weight:700}
@@ -40,24 +40,40 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
 .tag-red{background:rgba(239,68,68,0.1);color:var(--red)}
 .tag-gold{background:rgba(245,158,11,0.1);color:var(--gold)}
 .kpi-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.kpi-pill{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:.72rem;color:rgba(255,255,255,0.5);display:flex;align-items:center;gap:6px}
-.kpi-pill b{color:#fff;font-size:.85rem}
+.kpi-pill{background:rgba(var(--white-rgb),0.04);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:6px}
+.kpi-pill b{color:var(--text);font-size:.85rem}
 .loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000}
-.spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.05);border-top-color:var(--purple);border-radius:50%;animation:spin 1s linear infinite}
+.spinner{width:40px;height:40px;border:3px solid rgba(var(--white-rgb),0.05);border-top-color:var(--purple);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 4px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+::-webkit-scrollbar-track { background: rgba(var(--white-rgb),0.02); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(var(--white-rgb),0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(var(--white-rgb),0.3); }
+
+body.light-mode {
+  --bg: #f4f4f9;
+  --card: #ffffff;
+  --border: rgba(0,0,0,0.1);
+  --text: #1a1a2e;
+  --text-muted: rgba(0,0,0,0.5);
+  --text-light: rgba(0,0,0,0.3);
+  background-image: none;
+}
+.light-mode .card { box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.light-mode table td { background: rgba(0,0,0,0.02); }
+.light-mode .header-left p { color: var(--text-muted); }
+.light-mode .kpi-pill { background: #fff; }
+.light-mode .kpi-pill b { color: var(--text); }
+.light-mode .last-update { color: var(--text-muted); }
 </style>
 </head>
 <body>
-<div id="loading" class="loading-overlay"><div class="spinner"></div><p style="margin-top:20px;color:rgba(255,255,255,0.5)">Sincronizando con Notion...</p></div>
+<div id="loading" class="loading-overlay"><div class="spinner"></div><p style="margin-top:20px;color:var(--text-muted)">Sincronizando con Notion...</p></div>
 <div class="container">
   <div class="header">
     <div class="header-left"><h1>🌸 Maricuchis Store</h1><p>Dashboard Financiero v6.0</p></div>
-    <div class="last-update" id="lastUpdate">Actualizando...</div>
+    <div style="display:flex; gap:10px; align-items:center;"><button onclick="toggleTheme()" id="themeBtn" style="background:var(--card); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:30px; cursor:pointer; transition:0.3s; font-size:1rem;">☀️</button><div class="last-update" id="lastUpdate">Actualizando...</div></div>
   </div>
   <div class="section-title">📊 Resumen General — Solo ventas completadas</div>
   <div id="metrics" class="metrics"></div>
@@ -65,10 +81,10 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
   <div class="section-title">⏱️ Promedios y Rango de Fechas</div>
   <div class="panel" style="margin-bottom: 20px;">
     <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
-      <label style="font-size: 0.8rem; color: rgba(255,255,255,0.6)">Desde: <input type="date" id="dateStart" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px; border-radius: 5px; outline: none;"></label>
-      <label style="font-size: 0.8rem; color: rgba(255,255,255,0.6)">Hasta: <input type="date" id="dateEnd" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px; border-radius: 5px; outline: none;"></label>
-      <button onclick="calculateAverages()" style="background: var(--purple); color: white; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Calcular</button>
-      <button onclick="resetAverages()" style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: 0.2s;">Mes Actual</button>
+      <label style="font-size: 0.8rem; color: var(--text-muted)">Desde: <input type="date" id="dateStart" style="background: rgba(var(--white-rgb),0.1); border: 1px solid rgba(var(--white-rgb),0.2); color: var(--text); padding: 5px; border-radius: 5px; outline: none;"></label>
+      <label style="font-size: 0.8rem; color: var(--text-muted)">Hasta: <input type="date" id="dateEnd" style="background: rgba(var(--white-rgb),0.1); border: 1px solid rgba(var(--white-rgb),0.2); color: var(--text); padding: 5px; border-radius: 5px; outline: none;"></label>
+      <button onclick="calculateAverages()" style="background: var(--purple); color: var(--text); border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Calcular</button>
+      <button onclick="resetAverages()" style="background: rgba(var(--white-rgb),0.1); color: var(--text); border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: 0.2s;">Mes Actual</button>
     </div>
     <div class="grid-2" style="margin-bottom: 0;">
       <div class="card" style="background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.2);">
@@ -86,7 +102,7 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
   <div class="section-title">📸 Galería de Prendas Vendidas (Según fechas seleccionadas)</div>
   <div class="panel" style="margin-bottom: 20px; overflow: hidden;">
     <div id="galleryContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; max-height: 400px; overflow-y: auto; padding-right: 10px;">
-        <p style="color: rgba(255,255,255,0.4); font-size: 0.8rem; grid-column: 1/-1;">Selecciona un rango de fechas y presiona Calcular para ver las prendas vendidas.</p>
+        <p style="color: var(--text-muted); font-size: 0.8rem; grid-column: 1/-1;">Selecciona un rango de fechas y presiona Calcular para ver las prendas vendidas.</p>
     </div>
   </div>
   <div class="section-title">📈 Análisis de Ventas — Últimos 30 días</div>
@@ -119,8 +135,8 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
   <div class="section-title">👗 Galería del Inventario</div>
   <div class="panel" style="margin-bottom: 20px; overflow: hidden;">
     <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
-      <label style="font-size: 0.8rem; color: rgba(255,255,255,0.6)">Agrupar por: 
-        <select id="invSort" onchange="renderInventoryGallery()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px; border-radius: 5px; outline: none; margin-left: 5px;">
+      <label style="font-size: 0.8rem; color: var(--text-muted)">Agrupar por: 
+        <select id="invSort" onchange="renderInventoryGallery()" style="background: rgba(var(--white-rgb),0.1); border: 1px solid rgba(var(--white-rgb),0.2); color: var(--text); padding: 5px; border-radius: 5px; outline: none; margin-left: 5px;">
           <option value="tienda">Tienda</option>
           <option value="fecha">Fecha agregada</option>
         </select>
@@ -140,7 +156,7 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
       <h3>💸 Gastos Operativos</h3>
       <p class="desc">Se restan de la ganancia bruta para obtener la ganancia neta real.</p>
       <table><thead><tr><th>Concepto</th><th>Monto</th></tr></thead><tbody id="gastosTable"></tbody></table>
-      <div id="gastosTotal" style="margin-top:10px;text-align:right;font-size:.78rem;color:rgba(255,255,255,0.4)"></div>
+      <div id="gastosTotal" style="margin-top:10px;text-align:right;font-size:.78rem;color:var(--text-muted)"></div>
     </div>
   </div>
   <div class="grid-2">
@@ -161,18 +177,18 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
 <!-- Custom Modal for Client List -->
 <div id="clientModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 9999; justify-content: center; align-items: center; padding: 20px;">
     <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: modalFadeIn 0.3s ease;">
-        <div style="background: rgba(255,255,255,0.05); padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 8px;"><span>🛍️</span> Detalle de Ventas</h3>
-            <button onclick="closeModal()" style="background: none; border: none; color: rgba(255,255,255,0.4); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; transition: 0.2s;">&times;</button>
+        <div style="background: rgba(var(--white-rgb),0.05); padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: var(--text); display: flex; align-items: center; gap: 8px;"><span>🛍️</span> Detalle de Ventas</h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; transition: 0.2s;">&times;</button>
         </div>
         <div style="padding: 24px 20px;">
             <div id="modalPrenda" style="font-weight: 600; font-size: 1rem; color: var(--purple); margin-bottom: 8px; line-height: 1.3;"></div>
-            <div id="modalUds" style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed rgba(255,255,255,0.1);"></div>
-            <div style="font-size: 0.85rem; color: #fff; font-weight: 500; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;"><span>👥</span> Clientes que compraron:</div>
-            <div id="modalClientesList" style="background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; max-height: 220px; overflow-y: auto; font-size: 0.85rem; color: rgba(255,255,255,0.8); line-height: 1.6;"></div>
+            <div id="modalUds" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed rgba(var(--white-rgb),0.1);"></div>
+            <div style="font-size: 0.85rem; color: var(--text); font-weight: 500; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;"><span>👥</span> Clientes que compraron:</div>
+            <div id="modalClientesList" style="background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(var(--white-rgb),0.05); padding: 12px; max-height: 220px; overflow-y: auto; font-size: 0.85rem; color: var(--text); line-height: 1.6;"></div>
         </div>
-        <div style="padding: 16px 20px; border-top: 1px solid var(--border); text-align: right; background: rgba(255,255,255,0.02);">
-            <button onclick="closeModal()" style="background: var(--purple); color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Aceptar</button>
+        <div style="padding: 16px 20px; border-top: 1px solid var(--border); text-align: right; background: rgba(var(--white-rgb),0.02);">
+            <button onclick="closeModal()" style="background: var(--purple); color: var(--text); border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; transition: 0.2s;">Aceptar</button>
         </div>
     </div>
 </div>
@@ -185,18 +201,50 @@ td:last-child{border-radius:0 8px 8px 0;text-align:right}
     width: 6px;
 }
 #modalClientesList::-webkit-scrollbar-track, #invGalleryContainer::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--white-rgb), 0.05);
     border-radius: 4px;
 }
 #modalClientesList::-webkit-scrollbar-thumb, #invGalleryContainer::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(var(--white-rgb), 0.2);
     border-radius: 4px;
 }
 #modalClientesList::-webkit-scrollbar-thumb:hover, #invGalleryContainer::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(var(--white-rgb), 0.3);
 }
+
+body.light-mode {
+  --bg: #f4f4f9;
+  --card: #ffffff;
+  --border: rgba(0,0,0,0.1);
+  --text: #1a1a2e;
+  --text-muted: rgba(0,0,0,0.5);
+  --text-light: rgba(0,0,0,0.3);
+  background-image: none;
+}
+.light-mode .card { box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.light-mode table td { background: rgba(0,0,0,0.02); }
+.light-mode .header-left p { color: var(--text-muted); }
+.light-mode .kpi-pill { background: #fff; }
+.light-mode .kpi-pill b { color: var(--text); }
+.light-mode .last-update { color: var(--text-muted); }
 </style>
-<script>
+<script>\n
+let isLightMode = localStorage.getItem('theme') === 'light';
+if (isLightMode) document.body.classList.add('light-mode');
+function toggleTheme() {
+    isLightMode = !isLightMode;
+    localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
+    document.body.classList.toggle('light-mode', isLightMode);
+    document.getElementById('themeBtn').textContent = isLightMode ? '🌙' : '☀️';
+    if(appData) { updateUI(appData); calculateAverages(); }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('themeBtn').textContent = isLightMode ? '🌙' : '☀️';
+});
+const tColor = () => isLightMode ? '#1a1a2e' : '#ffffff';
+const tMuted = () => isLightMode ? 'rgba(0,0,0,0.5)' : 'rgba(var(--white-rgb),0.5)';
+const tGrid = () => isLightMode ? 'rgba(0,0,0,0.05)' : 'rgba(var(--white-rgb),0.04)';
+
 const S=n=>'S/'+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const Sn=n=>'S/'+Math.round(n);
 function createStripePattern(color) {
@@ -206,7 +254,7 @@ function createStripePattern(color) {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, 8, 8);
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.strokeStyle = 'rgba(var(--white-rgb),0.5)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, 8);
@@ -289,7 +337,7 @@ function calculateAverages() {
   
   const gallery = document.getElementById('galleryContainer');
   if (Object.keys(prendasVendidas).length === 0) {
-      gallery.innerHTML = '<p style="color: rgba(255,255,255,0.4); font-size: 0.8rem; grid-column: 1/-1;">No hay prendas vendidas en este rango de fechas.</p>';
+      gallery.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; grid-column: 1/-1;">No hay prendas vendidas en este rango de fechas.</p>';
       return;
   }
   
@@ -315,26 +363,26 @@ function calculateAverages() {
       }
 
       const fotoUrl = appData.fotos_map && appData.fotos_map[nombre] ? appData.fotos_map[nombre] : '';
-      const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;';
+      const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(var(--white-rgb),0.05); display:flex; align-items:center; justify-content:center;';
       const fallbackIcon = fotoUrl ? '' : '<span style="font-size:2rem; opacity:0.2;">👗</span>';
       
       const clientesCompletos = clientesArr.length > 0 ? clientesArr.join("||") : "Sin Cliente";
       const escapedNombre = nombre.replace(/'/g, "\\'").replace(/"/g, '\\"');
       const escapedClientes = clientesCompletos.replace(/'/g, "\\'").replace(/"/g, '\\"');
-      const pendientesHtml = info.uds_pendientes > 0 ? `<div style="position: absolute; top: 8px; left: 8px; background: rgba(245, 158, 11, 0.9); backdrop-filter: blur(5px); color: #fff; font-size: 0.7rem; font-weight: bold; padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);">⏳ Pendiente: ${info.uds_pendientes}</div>` : '';
+      const pendientesHtml = info.uds_pendientes > 0 ? `<div style="position: absolute; top: 8px; left: 8px; background: rgba(245, 158, 11, 0.9); backdrop-filter: blur(5px); color: var(--text); font-size: 0.7rem; font-weight: bold; padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(var(--white-rgb),0.2);">⏳ Pendiente: ${info.uds_pendientes}</div>` : '';
       
       galleryHtml += `
       <div onclick="showModal('${escapedNombre}', ${uds}, '${escapedClientes}')" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative; cursor: pointer;">
           <div style="width: 100%; aspect-ratio: 1/1; ${bgImg}">
               ${fallbackIcon}
               ${pendientesHtml}
-              <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: #fff; font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: var(--text); font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(var(--white-rgb),0.1);">
                   ${uds} uds
               </div>
           </div>
           <div style="padding: 10px;">
-              <div style="font-size: 0.75rem; font-weight: 600; color: #fff; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px;" title="${nombre}">${nombre}</div>
-              <div style="font-size: 0.65rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px;" title="${clientesStr}">
+              <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px;" title="${nombre}">${nombre}</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;" title="${clientesStr}">
                   <span>👤</span> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${clientesStr}</span>
               </div>
           </div>
@@ -383,14 +431,14 @@ function renderInventoryGallery() {
     
     const container = document.getElementById('invGalleryContainer');
     if (sortedInv.length === 0) {
-        container.innerHTML = '<p style="color: rgba(255,255,255,0.4); font-size: 0.8rem; grid-column: 1/-1;">No hay prendas en el inventario.</p>';
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; grid-column: 1/-1;">No hay prendas en el inventario.</p>';
         return;
     }
     
     let html = '';
     for (let p of sortedInv) {
         const fotoUrl = appData.fotos_map && appData.fotos_map[p.nombre] ? appData.fotos_map[p.nombre] : '';
-        const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;';
+        const bgImg = fotoUrl ? `background-image: url('${fotoUrl}'); background-size: cover; background-position: center;` : 'background: rgba(var(--white-rgb),0.05); display:flex; align-items:center; justify-content:center;';
         const fallbackIcon = fotoUrl ? '' : '<span style="font-size:2rem; opacity:0.2;">👗</span>';
         
         let tagColor = 'var(--green)';
@@ -401,17 +449,17 @@ function renderInventoryGallery() {
         <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s ease; position: relative;">
             <div style="width: 100%; aspect-ratio: 1/1; ${bgImg}">
                 ${fallbackIcon}
-                <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: #fff; font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: var(--text); font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(var(--white-rgb),0.1);">
                     <span style="color: ${tagColor}; margin-right: 4px;">●</span>${p.stock} uds
                 </div>
             </div>
             <div style="padding: 10px;">
-                <div style="font-size: 0.75rem; font-weight: 600; color: #fff; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px;" title="${p.nombre}">${p.nombre}</div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px;" title="${p.nombre}">${p.nombre}</div>
                 <div style="font-size: 0.75rem; font-weight: bold; color: var(--green); margin-bottom: 4px;">S/${p.precio}</div>
-                <div style="font-size: 0.65rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px;" title="Tienda: ${p.tienda}">
+                <div style="font-size: 0.65rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;" title="Tienda: ${p.tienda}">
                     <span>🏪</span> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.tienda}</span>
                 </div>
-                <div style="font-size: 0.65rem; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px; margin-top: 2px;" title="Fecha agregada: ${p.fecha}">
+                <div style="font-size: 0.65rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; margin-top: 2px;" title="Fecha agregada: ${p.fecha}">
                     <span>📅</span> <span>${p.fecha}</span>
                 </div>
             </div>
@@ -445,10 +493,10 @@ function updateUI(d){
   renderChart('lineChart','line',{
     labels:days.map(day=>{const p=day.split('-');return p[2]+'/'+p[1];}),
     datasets:[
-      {label:'Ingresos',data:days.map(day=>d.ventas_por_dia[day].ingresos),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#3b82f6',borderWidth:2},
+      {label:'Ingresos',data:days.map(day=>d.ventas_por_dia[day].ingresos),borderColor:'#3b82f6',backgroundColor:isLightMode?'rgba(59,130,246,0.15)':'rgba(59,130,246,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#3b82f6',borderWidth:2},
       {label:'Ingresos Est.',data:days.map(day=>d.ventas_por_dia[day].ingresos_estimados),borderColor:'#60a5fa',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#60a5fa',borderWidth:2},
-      {label:'Costo',data:days.map(day=>d.ventas_por_dia[day].costo),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#f59e0b',borderWidth:2,hidden:true},
-      {label:'Ganancia',data:days.map(day=>d.ventas_por_dia[day].ganancia),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981',borderWidth:2},
+      {label:'Costo',data:days.map(day=>d.ventas_por_dia[day].costo),borderColor:'#f59e0b',backgroundColor:isLightMode?'rgba(245,158,11,0.15)':'rgba(245,158,11,0.06)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#f59e0b',borderWidth:2,hidden:true},
+      {label:'Ganancia',data:days.map(day=>d.ventas_por_dia[day].ganancia),borderColor:'#10b981',backgroundColor:isLightMode?'rgba(16,185,129,0.15)':'rgba(16,185,129,0.06)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981',borderWidth:2},
       {label:'Ganancia Est.',data:days.map(day=>d.ventas_por_dia[day].ganancia_estimada),borderColor:'#34d399',backgroundColor:'transparent',borderDash:[4,4],tension:.4,pointRadius:3,pointBackgroundColor:'#34d399',borderWidth:2},
       {label:'Unidades',data:days.map(day=>d.ventas_por_dia[day].uds),borderColor:'#8b5cf6',backgroundColor:'transparent',tension:.4,pointRadius:3,pointBackgroundColor:'#8b5cf6',borderWidth:1.5,borderDash:[5,5],yAxisID:'y1'}
     ]
@@ -456,9 +504,9 @@ function updateUI(d){
     interaction: { mode: 'index', intersect: false },
     scales:{y:{beginAtZero:true,ticks:{callback:v=>'S/'+v},position:'left'},y1:{beginAtZero:true,position:'right',grid:{display:false},ticks:{color:'rgba(139,92,246,0.5)',callback:v=>v+' uds'}}},
     plugins:{
-      legend:{labels:{color:'rgba(255,255,255,0.6)',font:{family:'Outfit',size:11}}},
+      legend:{labels:{color:tMuted(),font:{family:'Outfit',size:11}}},
       tooltip:{
-        backgroundColor: 'rgba(0,0,0,0.85)', titleColor: '#fff', bodyColor: '#e2e8f0', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 12, usePointStyle: true, boxPadding: 6, titleFont: {size: 14, weight: 'bold'}, bodySpacing: 6,
+        backgroundColor: isLightMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.85)', titleColor: tColor(), bodyColor: tColor(), borderColor: isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(var(--white-rgb),0.1)', borderWidth: 1, padding: 12, usePointStyle: true, boxPadding: 6, titleFont: {size: 14, weight: 'bold'}, bodySpacing: 6,
         filter: function(item) { return item.dataset.hidden !== true; },
         callbacks:{
             title: function(ctx) { return '📅 ' + ctx[0].label; },
@@ -495,7 +543,7 @@ function updateUI(d){
   // Stock donut
   const s=d.stock_stats;const sL=['Disponible','Stock bajo','Agotado'];const sD=[s.Disponible,s["Stock bajo"],s.Agotado];const sC=['#10b981','#f59e0b','#ef4444'];
   renderChart('stockDonut','doughnut',{labels:sL,datasets:[{data:sD,backgroundColor:sC,borderWidth:0,cutout:'75%'}]},{plugins:{legend:{display:false}}});
-  document.getElementById('stockLegend').innerHTML=sL.map((l,i)=>`<div style="font-size:0.73rem;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${sC[i]}"></div>${l}: <b>${sD[i]}</b></div>`).join('');
+  document.getElementById('stockLegend').innerHTML=sL.map((l,i)=>`<div style="font-size:0.73rem;color:var(--text-muted);display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${sC[i]}"></div>${l}: <b>${sD[i]}</b></div>`).join('');
 
   // Monthly bar
   const months=Object.keys(d.ventas_por_mes);
@@ -511,18 +559,18 @@ function updateUI(d){
   // Tables
   document.getElementById('invTable').innerHTML=d.top_inventario.slice(0, 8).map(p=>`<tr><td>${p.nombre}</td><td><b>${p.stock}</b></td><td><span class="tag tag-gold">${S(p.valor)}</span></td></tr>`).join('');
   if(d.gastos_lista&&d.gastos_lista.length>0){document.getElementById('gastosTable').innerHTML=d.gastos_lista.map(g=>`<tr><td>${g.nombre}</td><td><span class="tag tag-red">${S(g.monto)}</span></td></tr>`).join('');document.getElementById('gastosTotal').innerHTML='<b>Total: '+S(d.gastos)+'</b>';}
-  else{document.getElementById('gastosTable').innerHTML='<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin gastos</td></tr>';}
+  else{document.getElementById('gastosTable').innerHTML='<tr><td colspan="2" style="text-align:center;color:var(--text-light)">Sin gastos</td></tr>';}
   document.getElementById('mesTable').innerHTML=months.map(m=>{const mm=d.ventas_por_mes[m];const p=m.split('-');return `<tr><td>${p[1]}/${p[0]}</td><td>${mm.ventas} (${mm.uds} uds)</td><td><span class="tag tag-green">${Sn(mm.ganancia)}</span></td></tr>`;}).join('');
   
   if(d.top_boletos && d.top_boletos.length > 0) {
       document.getElementById('boletosTable').innerHTML = d.top_boletos.slice(0, 8).map(b => `<tr><td>${b.nombre}</td><td><span class="tag tag-green" style="background:rgba(139,92,246,0.1);color:var(--purple)">${b.boletos}</span></td></tr>`).join('');
   } else {
-      document.getElementById('boletosTable').innerHTML = '<tr><td colspan="2" style="text-align:center;color:rgba(255,255,255,0.3)">Sin boletos</td></tr>';
+      document.getElementById('boletosTable').innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text-light)">Sin boletos</td></tr>';
   }
   
   renderInventoryGallery();
 }
-function renderChart(id,type,data,options={}){if(charts[id])charts[id].destroy();const ctx=document.getElementById(id).getContext('2d');const b={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'rgba(255,255,255,0.6)',font:{family:'Outfit',size:11}}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.5)',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.5)',font:{size:10}}}}};charts[id]=new Chart(ctx,{type,data,options:{...b,...options}});}
+function renderChart(id,type,data,options={}){if(charts[id])charts[id].destroy();const ctx=document.getElementById(id).getContext('2d');const b={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tMuted(),font:{family:'Outfit',size:11}}}},scales:{x:{grid:{color:tGrid()},ticks:{color:tMuted(),font:{size:10}}},y:{grid:{color:tGrid()},ticks:{color:tMuted(),font:{size:10}}}}};charts[id]=new Chart(ctx,{type,data,options:{...b,...options}});}
 loadData();setInterval(loadData,60000);
 </script>
 </body>
