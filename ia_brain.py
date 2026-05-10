@@ -106,6 +106,7 @@ INTENCIONES:
 - agregar_prenda: quiere agregar inventario nuevo (llegó, traje, compré mercadería, registrar prenda nueva)
 - actualizar_pendiente: quiere marcar un pendiente como pagado/completado (ya pagó, ya cobré)
 - cancelar: quiere cancelar la operación actual (cancela, olvídalo, ya no, no nada, dejalo)
+- ver_foto: quiere ver la foto de una prenda (muéstrame la foto, enséñame, cómo se ve)
 - consultar_stock: pregunta por stock de una prenda específica (cuánto stock tiene, cuántas quedan)
 - consultar_precio: pregunta por precio o costo de una prenda (cuánto cuesta, qué precio tiene)
 - consultar_pendientes: pregunta por ventas pendientes (cuántos pendientes, qué falta cobrar)

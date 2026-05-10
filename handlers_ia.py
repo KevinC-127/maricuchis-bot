@@ -74,10 +74,10 @@ async def handle_ia_message(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         await msg.edit_text("❌ No hay operación activa para cancelar.")
     
     elif intencion == "sin_sentido":
-        await msg.edit_text("🤔 No entendí eso. ¿Qué necesitas?\n\nPuedes decirme cosas como:\n• _\"Registra chompa azul, costo 15, precio 25, 12 uds, de Gamarra\"_\n• _\"Victoria compró 2 chompas\"_\n• _\"Cuánto stock tiene polo cruzado\"_", parse_mode="Markdown")
+        await msg.edit_text("🤔 No entendí eso. ¿Qué necesitas?\n\nPuedes decirme cosas como:\n• _\"Registra chompa azul, costo 15, precio 25, 12 uds, de Gamarra\"_\n• _\"Victoria compró 2 chompas\"_\n• _\"Cuánto stock tiene polo cruzado\"_\n• _\"Muéstrame la foto de capa\"_", parse_mode="Markdown")
 
     elif intencion == "no_entendido":
-        await msg.edit_text("🤔 ¿Qué necesitas hacer?\n\n• 📦 Agregar prenda nueva\n• 🛒 Registrar una venta\n• 🔍 Consultar stock/precio\n• ⏳ Actualizar un pendiente")
+        await msg.edit_text("🤔 ¿Qué necesitas hacer?\n\n• 📦 Agregar prenda nueva\n• 🛒 Registrar una venta\n• 🔍 Consultar stock/precio\n• 📸 Ver foto de prenda\n• ⏳ Actualizar un pendiente")
 
     elif intencion == "registrar_venta":
         await _iniciar_venta(update, context, msg, mensaje)
@@ -87,6 +87,9 @@ async def handle_ia_message(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     elif intencion == "actualizar_pendiente":
         await _iniciar_pendiente(update, context, msg, mensaje)
+
+    elif intencion == "ver_foto":
+        await _iniciar_ver_foto(update, context, msg, mensaje)
 
     elif intencion.startswith("consultar_"):
         await _procesar_consulta(update, context, msg, mensaje, intencion)
@@ -355,6 +358,46 @@ async def _continuar_sesion(update, context, sesion, mensaje):
     chat_id = update.effective_chat.id
     tipo = sesion["tipo"]
     datos = sesion["datos"]
+    
+    # === DESAMBIGUACIÓN UNIVERSAL ===
+    # Si hay candidatos pendientes, resolver primero
+    if datos.get("_disambiguation"):
+        disamb = datos["_disambiguation"]
+        candidatos = disamb["candidatos"]
+        resultado = _resolver_disambiguation(mensaje, candidatos)
+        
+        if resultado is None:
+            # No se resolvió, volver a mostrar
+            opts = "\n".join(f"  {i+1}. {c}" for i, c in enumerate(candidatos))
+            await update.message.reply_text(f"🤔 No entendí. Elige una opción:\n{opts}\n\n_Escribe el número, el nombre, o 'ninguna'_", parse_mode="Markdown")
+            return
+        
+        if resultado == "__ninguna__":
+            datos.pop("_disambiguation", None)
+            cerrar_sesion(chat_id)
+            await update.message.reply_text("❌ Operación cancelada.")
+            return
+        
+        # Aplicar resultado
+        campo = disamb["campo"]
+        datos[campo] = resultado
+        datos.pop("_disambiguation", None)
+        sesion["datos"] = datos
+        sesion["timestamp"] = __import__("time").time()
+        
+        # Continuar según tipo
+        if tipo == "ver_foto":
+            await _mostrar_foto_prenda(update, context, resultado, datos.get("_prendas_inv", []))
+            cerrar_sesion(chat_id)
+            return
+        elif tipo == "consultar_detalle":
+            prendas_inv = datos.get("_prendas_inv", [])
+            match = [p for p in prendas_inv if p["nombre"] == resultado]
+            if match:
+                p = match[0]
+                await update.message.reply_text(f"👗 *{p['nombre']}*\n📦 Stock: {p.get('stock',0)} uds | {p.get('estado','')}\n💰 Precio: S/{p.get('precio',0)} | Costo u.: S/{p.get('costo_u',0)}", parse_mode="Markdown")
+            cerrar_sesion(chat_id)
+            return
     
     # Cargar contexto
     clientes, prendas, tiendas = await _cargar_contexto()
@@ -685,3 +728,139 @@ def _resumen_parcial_venta(datos):
     if datos.get("estado"): parts.append(f"📋 {datos['estado']}")
     if datos.get("fecha"): parts.append(f"📅 {datos['fecha']}")
     return "\n".join(parts) if parts else "(sin datos aún)"
+
+
+# ============================================================
+# DESAMBIGUACIÓN UNIVERSAL
+# ============================================================
+def _resolver_disambiguation(mensaje: str, candidatos: list) -> str | None:
+    """
+    Resuelve la respuesta del usuario contra una lista de candidatos.
+    Soporta:
+      - "sí", "sí esa", "esa", "la primera" → candidatos[0]
+      - "la segunda", "la 2", "2" → candidatos[1]
+      - "no, es capa murciélago" → busca coincidencia
+      - "ninguna", "cancelar" → "__ninguna__"
+    Retorna el nombre elegido, "__ninguna__", o None si no se resolvió.
+    """
+    msg = mensaje.strip().lower()
+    
+    # Cancelar/ninguna
+    if msg in ("ninguna", "cancelar", "ninguno", "no", "no ninguna"):
+        return "__ninguna__"
+    
+    # Afirmativo → primer candidato
+    if msg in ("sí", "si", "sí esa", "si esa", "esa", "esa misma", "la primera", "la 1", "1", "correcto"):
+        return candidatos[0] if candidatos else None
+    
+    # Ordinal o número
+    ordinal_map = {
+        "la segunda": 1, "la 2": 1, "2": 1, "segundo": 1, "segunda": 1,
+        "la tercera": 2, "la 3": 2, "3": 2, "tercero": 2, "tercera": 2,
+        "la cuarta": 3, "la 4": 3, "4": 3, "cuarto": 3, "cuarta": 3,
+        "la quinta": 4, "la 5": 4, "5": 4, "quinto": 4, "quinta": 4,
+        "la sexta": 5, "la 6": 5, "6": 5,
+        "la séptima": 6, "la 7": 6, "7": 6,
+        "la octava": 7, "la 8": 7, "8": 7,
+    }
+    if msg in ordinal_map:
+        idx = ordinal_map[msg]
+        return candidatos[idx] if idx < len(candidatos) else None
+    
+    # "no, es X" → extraer X y buscar coincidencia
+    for prefix in ("no es ", "no, es ", "es ", "la ", "el "):
+        if msg.startswith(prefix):
+            busqueda = msg[len(prefix):].strip()
+            for c in candidatos:
+                if busqueda in c.lower() or c.lower() in busqueda:
+                    return c
+            # No coincidió exactamente, pero podría ser un nombre válido que no está en la lista
+            return busqueda if len(busqueda) > 2 else None
+    
+    # Búsqueda directa por coincidencia parcial
+    for c in candidatos:
+        if msg in c.lower() or c.lower() in msg:
+            return c
+    
+    return None
+
+
+def _crear_disambiguation(sesion_datos: dict, campo: str, candidatos: list, prendas_inv: list = None):
+    """Crea un estado de desambiguación en la sesión."""
+    sesion_datos["_disambiguation"] = {
+        "campo": campo,
+        "candidatos": candidatos,
+    }
+    if prendas_inv:
+        sesion_datos["_prendas_inv"] = prendas_inv
+
+
+# ============================================================
+# VER FOTO
+# ============================================================
+async def _iniciar_ver_foto(update, context, msg, mensaje):
+    """Busca una prenda y muestra su foto."""
+    chat_id = update.effective_chat.id
+    clientes, prendas, tiendas = await _cargar_contexto()
+    datos = await extraer_datos("consultar_stock", mensaje, clientes, prendas, tiendas)
+    
+    prenda_buscar = datos.get("prenda", "")
+    if not prenda_buscar:
+        await msg.edit_text("❓ ¿De qué prenda quieres ver la foto? Dime el nombre.")
+        return
+    
+    # Buscar coincidencias
+    matches = [p for p in prendas if prenda_buscar.lower() in p["nombre"].lower()]
+    if not matches:
+        palabras = prenda_buscar.lower().split()
+        matches = [p for p in prendas if any(w in p["nombre"].lower() for w in palabras if len(w) > 2)]
+    
+    if not matches:
+        await msg.edit_text(f"❌ No encontré \"{prenda_buscar}\" en el inventario.")
+        return
+    
+    if len(matches) == 1:
+        await msg.edit_text("📸 Buscando foto...")
+        await _mostrar_foto_prenda(update, context, matches[0]["nombre"], prendas)
+        try:
+            await msg.delete()
+        except:
+            pass
+    else:
+        # Múltiples coincidencias → desambiguar
+        nombres = [p["nombre"] for p in matches[:8]]
+        opts = "\n".join(f"  {i+1}. {n}" for i, n in enumerate(nombres))
+        crear_sesion(chat_id, "ver_foto", {})
+        sesion = get_sesion(chat_id)
+        _crear_disambiguation(sesion["datos"], "prenda", nombres, prendas)
+        await msg.edit_text(f"📸 ¿De cuál prenda quieres ver la foto?\n{opts}\n\n_Escribe el número o el nombre_", parse_mode="Markdown")
+
+
+async def _mostrar_foto_prenda(update, context, nombre_prenda: str, prendas: list):
+    """Muestra la foto de una prenda."""
+    from notion_api import obtener_foto_url
+    
+    match = [p for p in prendas if p["nombre"] == nombre_prenda]
+    if not match:
+        match = [p for p in prendas if nombre_prenda.lower() in p["nombre"].lower()]
+    
+    if not match:
+        await update.message.reply_text(f"❌ No encontré \"{nombre_prenda}\".")
+        return
+    
+    p = match[0]
+    foto_url = await obtener_foto_url(p["id"])
+    
+    if foto_url:
+        try:
+            await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=foto_url,
+                caption=f"👗 *{p['nombre']}*\n📦 Stock: {p.get('stock',0)} | 💰 S/{p.get('precio',0)}",
+                parse_mode="Markdown",
+            )
+        except Exception:
+            await update.message.reply_text(f"👗 *{p['nombre']}*\n📸 [Ver foto]({foto_url})\n📦 Stock: {p.get('stock',0)} | 💰 S/{p.get('precio',0)}", parse_mode="Markdown")
+    else:
+        await update.message.reply_text(f"👗 *{p['nombre']}*\n📸 Esta prenda no tiene foto registrada.\n📦 Stock: {p.get('stock',0)} | 💰 S/{p.get('precio',0)}", parse_mode="Markdown")
+
