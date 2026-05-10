@@ -590,35 +590,63 @@ async def buscar_ventas_notion(*args, **kwargs):
     return await asyncio.to_thread(functools.partial(_sync_buscar_ventas_notion, *args, **kwargs))
 
 def _sync_buscar_ventas_notion(termino: str) -> list:
-    """Busca ventas recientes en la BD de ventas por nombre de prenda."""
+    """Busca ventas en la BD de ventas por nombre de prenda (busca en Notion directamente)."""
     if not NOTION_VENTAS_ID:
         return []
-    url     = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
-    payload = {
-        "sorts": [{"property": "Fecha", "direction": "descending"}],
-        "page_size": 20,
-    }
-    r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
-    if r.status_code != 200:
-        return []
+    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    
+    # Buscar con filtro de Notion para no depender de page_size
+    variantes = list(dict.fromkeys([
+        termino, termino.lower(), termino.capitalize(), termino.title(),
+    ]))
+    
+    todas_pages = []
+    seen_ids = set()
+    
+    for variante in variantes:
+        payload = {
+            "filter": {
+                "property": "Prenda",
+                "rich_text": {"contains": variante}
+            },
+            "sorts": [{"property": "Fecha", "direction": "descending"}],
+            "page_size": 50,
+        }
+        r = requests.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+        if r.status_code == 200:
+            for page in r.json().get("results", []):
+                if page["id"] not in seen_ids:
+                    seen_ids.add(page["id"])
+                    todas_pages.append(page)
+    
     resultados = []
-    for page in r.json().get("results", []):
+    for page in todas_pages:
         props    = page["properties"]
         prenda_n = props.get("Prenda", {}).get("rich_text", [])
         nombre   = prenda_n[0]["text"]["content"] if prenda_n else ""
-        if termino.lower() in nombre.lower() or not termino:
-            cantidad = props.get("Cantidad", {}).get("number", 0) or 0
-            precio   = props.get("Precio Venta", {}).get("number", 0) or 0
-            fecha_d  = props.get("Fecha", {}).get("date") or {}
-            fecha    = fecha_d.get("start", "")
-            resultados.append({
-                "id":       page["id"],
-                "nombre":   nombre,
-                "cantidad": cantidad,
-                "precio":   precio,
-                "fecha":    fecha,
-                "label":    f"{nombre} | {cantidad}ud x S/{precio:.0f} | {fecha}",
-            })
+        cantidad = props.get("Cantidad", {}).get("number", 0) or 0
+        precio   = props.get("Precio Venta", {}).get("number", 0) or 0
+        fecha_d  = props.get("Fecha", {}).get("date") or {}
+        fecha    = fecha_d.get("start", "")
+        cliente_rt = props.get("Cliente", {}).get("rich_text", [])
+        cliente    = cliente_rt[0]["text"]["content"] if cliente_rt else ""
+        estado_s   = props.get("Estado", {}).get("select") or {}
+        estado     = estado_s.get("name", "")
+        lbl = f"{nombre} | {cantidad}ud x S/{precio:.0f} | {fecha}"
+        if cliente:
+            lbl = f"👤{cliente} | {lbl}"
+        if estado:
+            lbl += f" | {estado}"
+        resultados.append({
+            "id":       page["id"],
+            "nombre":   nombre,
+            "cantidad": cantidad,
+            "precio":   precio,
+            "fecha":    fecha,
+            "cliente":  cliente,
+            "estado":   estado,
+            "label":    lbl,
+        })
     return resultados
 
 async def fetch_ventas_pendientes(*args, **kwargs):
