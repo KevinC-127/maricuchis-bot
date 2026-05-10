@@ -109,7 +109,80 @@ async def _iniciar_venta(update, context, msg, mensaje):
         await msg.edit_text("❌ Error al interpretar. Intenta de nuevo.")
         return
 
-    # Crear sesión
+    # === VALIDAR ITEMS CONTRA INVENTARIO REAL ===
+    items_validados = []
+    items_problemas = []
+    
+    for item in datos.get("items", []):
+        prenda_nom = item.get("prenda", "")
+        # Buscar coincidencias en inventario local
+        matches = [p for p in prendas if prenda_nom.lower() in p["nombre"].lower() or p["nombre"].lower() in prenda_nom.lower()]
+        
+        if not matches:
+            # Búsqueda más flexible por palabras
+            palabras = prenda_nom.lower().split()
+            matches = [p for p in prendas if any(w in p["nombre"].lower() for w in palabras if len(w) > 2)]
+        
+        if len(matches) == 1:
+            # Coincidencia única → validado
+            p = matches[0]
+            item["prenda"] = p["nombre"]
+            item["prenda_exacta"] = True
+            item["_inv"] = p  # referencia interna
+            if not item.get("precio"):
+                item["precio"] = p.get("precio", 0)
+            items_validados.append(item)
+        elif len(matches) > 1:
+            # Múltiples coincidencias → pedir aclaración
+            sugerencias = [p["nombre"] for p in matches[:5]]
+            items_problemas.append({"original": prenda_nom, "sugerencias": sugerencias, "item": item})
+        else:
+            # Sin coincidencia
+            items_problemas.append({"original": prenda_nom, "sugerencias": [], "item": item})
+    
+    # === DISTRIBUIR PRECIO TOTAL SI LO DIERON ===
+    precio_total_dado = datos.get("precio_total_dado")
+    if precio_total_dado and items_validados and not items_problemas:
+        # Calcular suma de precios de lista
+        suma_lista = sum(it.get("_inv", {}).get("precio", 0) * it.get("cantidad", 1) for it in items_validados)
+        if suma_lista == precio_total_dado:
+            # El total coincide con precios de lista → usar precios de lista
+            for it in items_validados:
+                it["precio"] = it.get("_inv", {}).get("precio", it.get("precio", 0))
+        else:
+            # Total diferente → hay descuento, distribuir proporcionalmente
+            for it in items_validados:
+                precio_lista = it.get("_inv", {}).get("precio", 0)
+                cant = it.get("cantidad", 1)
+                proporcion = (precio_lista * cant) / suma_lista if suma_lista > 0 else 0
+                it["precio"] = round((precio_total_dado * proporcion) / cant, 1) if cant > 0 else 0
+    
+    # Limpiar referencia interna
+    for it in items_validados:
+        it.pop("_inv", None)
+    
+    datos["items"] = items_validados
+    
+    # === SI HAY PROBLEMAS, INFORMAR ===
+    if items_problemas:
+        prob_txt = ""
+        for prob in items_problemas:
+            if prob["sugerencias"]:
+                opts = "\n".join(f"  • {s}" for s in prob["sugerencias"])
+                prob_txt += f"\n⚠️ *\"{prob['original']}\"* — ¿Te refieres a alguna de estas?\n{opts}\n"
+            else:
+                prob_txt += f"\n❌ *\"{prob['original']}\"* — No encontré nada similar en el inventario.\n"
+        
+        # Guardar sesión con items validados + pendientes
+        datos["_items_pendientes"] = items_problemas
+        crear_sesion(chat_id, "registrar_venta", datos)
+        
+        resumen = _resumen_parcial_venta(datos) if items_validados else ""
+        extra = f"\n{resumen}\n" if resumen else ""
+        await msg.edit_text(f"🛒 Venta parcial:{extra}\n{prob_txt}\nEscribe el nombre correcto de la(s) prenda(s) faltantes.", parse_mode="Markdown")
+        return
+
+    # Crear sesión con items validados
     crear_sesion(chat_id, "registrar_venta", datos)
     faltantes = campos_faltantes_venta(datos)
     

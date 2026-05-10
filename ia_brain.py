@@ -159,23 +159,29 @@ REGLAS DE MATCHING INTELIGENTE:
 - Usa DEDUCCIÓN para coincidir nombres parciales con la lista existente:
   Ejemplo: "Brenda pilates" → "Brenda (P)" porque P = Pilates
   Ejemplo: "Dafne escuela mini" → "Dafne (E.M.)" porque E.M. = Escuela Mini
-  Ejemplo: "la prima claudia" → "Claudia (Prima)"
 - Si hay varias posibles coincidencias, pon "cliente_exacto": false y "candidatos": [lista]
 - Si el cliente es completamente nuevo, ponlo tal cual con "cliente_exacto": false
 - Para prendas, busca la coincidencia más cercana en la lista
+- Si una prenda NO coincide con nada, pon "prenda_exacta": false
+
+REGLAS DE PRECIOS:
+- Si el usuario da un TOTAL GLOBAL (ej: "a 54 soles"), distribuye usando precios del inventario:
+  Ejemplo: 2 polos (S/10 c/u) + 1 pantalón (S/34) = S/54 total → cada item con su precio de lista
+  En ese caso pon "precio_total_dado": 54
+- Si el usuario da precio POR UNIDAD (ej: "a 22 cada una"), úsalo como precio de cada item
+- Si no mencionó precio, usa el precio de la lista
+- Si mencionó un precio diferente al de lista para una prenda → es descuento
 
 REGLAS DE DATOS:
-- Si no mencionó precio, usa el precio de la lista; si mencionó uno diferente, úsalo (es descuento)
 - Si no mencionó cantidad, asume 1
 - Si no dijo si pagó o no, pon estado null (se preguntará)
 - Si dijo "separó", "fió", "queda debiendo" → estado = "Pendiente"
 - Si dijo "pagó", "completo", "al contado" → estado = "Completado"
-- Si mencionó fecha ("ayer", "hace 2 días", "el lunes"), ponla; si no, pon null
-- Si hay varias prendas, devuélvelas como array en "items"
+- Si mencionó fecha ("ayer", "hace 2 días"), ponla; si no, pon null
 - Los números en texto ("dos") conviértelos a dígitos (2)
 
 Responde SOLO en JSON:
-{{"cliente": "...", "cliente_exacto": true/false, "candidatos": [], "items": [{{"prenda": "...", "prenda_exacta": true/false, "cantidad": N, "precio": N}}], "estado": "Completado"/"Pendiente"/null, "fecha": "YYYY-MM-DD" o null}}"""
+{{"cliente": "...", "cliente_exacto": true/false, "candidatos": [], "items": [{{"prenda": "...", "prenda_exacta": true/false, "cantidad": N, "precio": N}}], "precio_total_dado": N o null, "estado": "Completado"/"Pendiente"/null, "fecha": "YYYY-MM-DD" o null}}"""
 
     elif intencion == "agregar_prenda":
         return f"""Eres el asistente de Maricuchis Store. Extrae los datos de una NUEVA PRENDA.
