@@ -362,6 +362,17 @@ def main():
     app.add_handler(CommandHandler("chatid",      cmd_chatid))
     app.add_handler(CommandHandler("auditarventas", cmd_auditar_ventas))
 
+    # Comando oculto para arreglar los céntimos
+    async def cmd_corregir_decimales(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        import subprocess
+        msg = await update.message.reply_text("⏳ Ejecutando script de corrección en Notion...")
+        try:
+            resultado = subprocess.run(["python", "corregir_precios.py"], capture_output=True, text=True, timeout=180)
+            await msg.edit_text(f"✅ Script finalizado.\n\nResultados:\n{resultado.stdout[-500:]}")
+        except Exception as e:
+            await msg.edit_text(f"❌ Error al ejecutar: {e}")
+    app.add_handler(CommandHandler("corregir_decimales", cmd_corregir_decimales))
+
     # Handler genérico para fotos con caption (registro rápido existente)
     app.add_handler(MessageHandler(filters.PHOTO & filters.CAPTION, recibir_foto_nueva))
     
