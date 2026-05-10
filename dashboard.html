@@ -192,6 +192,10 @@ body.light-mode {
           <option value="fecha">Fecha agregada</option>
         </select>
       </label>
+      <div style="flex:1;min-width:200px;position:relative;">
+        <input type="text" id="invSearch" oninput="renderInventoryGallery()" placeholder="🔍 Buscar prenda..." style="width:100%;background:rgba(var(--white-rgb),0.08);border:1px solid var(--border);color:var(--text);padding:7px 12px 7px 12px;border-radius:8px;font-family:inherit;font-size:0.8rem;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--purple)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <span id="invCount" style="font-size:0.7rem;color:var(--text-light);"></span>
     </div>
     <div id="invGalleryContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; max-height: 400px; overflow-y: auto; padding-right: 10px;">
     </div>
@@ -460,6 +464,13 @@ function renderInventoryGallery() {
     
     // Sort inventory
     let sortedInv = [...appData.top_inventario];
+    
+    // Filter by search
+    const searchTerm = (document.getElementById('invSearch').value || '').toLowerCase().trim();
+    if (searchTerm) {
+        sortedInv = sortedInv.filter(p => p.nombre.toLowerCase().includes(searchTerm));
+    }
+    
     if (sortBy === 'tienda') {
         sortedInv.sort((a, b) => a.tienda.localeCompare(b.tienda));
     } else if (sortBy === 'fecha') {
@@ -503,6 +514,7 @@ function renderInventoryGallery() {
         </div>`;
     }
     container.innerHTML = html;
+    document.getElementById('invCount').textContent = `${sortedInv.length} prendas${searchTerm ? ' encontradas' : ''}`;
 }
 
 function renderHeatmap(ventasPorDia) {
