@@ -387,10 +387,13 @@ function calculateAverages() {
               
               if (v.cliente && v.cliente !== "Desconocido") {
                   if (!prendasVendidas[v.nombre].clientes[v.cliente]) {
-                      prendasVendidas[v.nombre].clientes[v.cliente] = {uds: 0, pendientes: 0};
+                      prendasVendidas[v.nombre].clientes[v.cliente] = {uds: 0, pendientes: 0, fechas: []};
                   }
                   prendasVendidas[v.nombre].clientes[v.cliente].uds += v.uds;
                   if (v.estado === "Pendiente") prendasVendidas[v.nombre].clientes[v.cliente].pendientes += v.uds;
+                  if (v.fecha && !prendasVendidas[v.nombre].clientes[v.cliente].fechas.includes(v.fecha)) {
+                      prendasVendidas[v.nombre].clientes[v.cliente].fechas.push(v.fecha);
+                  }
               }
           });
       }
@@ -412,6 +415,11 @@ function calculateAverages() {
           let text = data.uds > 1 ? `${c} (${data.uds} uds)` : c;
           if (data.pendientes > 0) {
               text += data.pendientes === data.uds ? " [PENDIENTE]" : ` [${data.pendientes} PENDIENTES]`;
+          }
+          // Agregar fechas
+          if (data.fechas && data.fechas.length > 0) {
+              const fechasCortas = data.fechas.map(f => { const p=f.split('-'); return p[2]+'/'+p[1]; });
+              text += ` {${fechasCortas.join(', ')}}`;
           }
           return text;
       });
@@ -467,6 +475,7 @@ function showModal(prenda, uds, clientesStr) {
     
     let clientsHtml = clientesStr.split('||').map(c => {
         let styledC = c.replace(/\[(.*?)\]/g, '<span style="color:var(--gold); font-size:0.85em; font-weight:normal; margin-left:4px;">⏳ $1</span>');
+        styledC = styledC.replace(/\{(.*?)\}/g, '<span style="color:var(--text-light); font-size:0.75em; margin-left:6px; opacity:0.7;">📅 $1</span>');
         return `<div style="margin-bottom:4px;"><span style="color:var(--purple); margin-right:6px; font-weight:bold;">•</span>${styledC}</div>`;
     }).join('');
     document.getElementById('modalClientesList').innerHTML = clientsHtml;

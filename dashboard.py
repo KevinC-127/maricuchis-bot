@@ -264,7 +264,8 @@ def _sync_get_stats() -> dict:
                             "nombre": prenda_nom,
                             "cliente": cliente_nom,
                             "uds": cantidad,
-                            "estado": estado
+                            "estado": estado,
+                            "fecha": full_fecha
                         })
 
             if not data.get("has_more"):
