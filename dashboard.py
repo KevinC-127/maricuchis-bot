@@ -278,12 +278,70 @@ async def handle_index(request):
     return web.Response(text=DASHBOARD_HTML, content_type="text/html", charset="utf-8")
 
 # ============================================================
+# BOLETO — Token firmado con HMAC
+# ============================================================
+import hmac
+import hashlib
+import base64
+import json
+import time
+
+_BOLETO_SECRET = (os.environ.get("TELEGRAM_TOKEN") or "maricuchis-secret").encode()
+_BOLETO_EXPIRY = 3600  # 1 hora
+
+def _sign_boleto(clienta: str, boletos: int) -> str:
+    payload = json.dumps({"c": clienta, "b": boletos, "t": int(time.time())}, ensure_ascii=False)
+    payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode()
+    sig = hmac.new(_BOLETO_SECRET, payload_b64.encode(), hashlib.sha256).hexdigest()[:16]
+    return f"{payload_b64}.{sig}"
+
+def _verify_boleto(token: str):
+    try:
+        parts = token.split(".")
+        if len(parts) != 2:
+            return None, "Token inválido"
+        payload_b64, sig = parts
+        expected_sig = hmac.new(_BOLETO_SECRET, payload_b64.encode(), hashlib.sha256).hexdigest()[:16]
+        if not hmac.compare_digest(sig, expected_sig):
+            return None, "Token inválido"
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode())
+        elapsed = int(time.time()) - payload["t"]
+        if elapsed > _BOLETO_EXPIRY:
+            return None, "expired"
+        return payload, None
+    except Exception:
+        return None, "Token inválido"
+
+async def handle_boleto_link(request):
+    clienta = request.query.get("clienta", "")
+    boletos = int(request.query.get("boletos", "0"))
+    if not clienta:
+        return web.json_response({"error": "Falta clienta"}, status=400)
+    token = _sign_boleto(clienta, boletos)
+    return web.json_response({"token": token})
+
+async def handle_boleto_page(request):
+    token = request.match_info.get("token", "")
+    payload, error = _verify_boleto(token)
+    if error == "expired":
+        html = BOLETO_EXPIRED_HTML
+    elif error:
+        html = BOLETO_INVALID_HTML
+    else:
+        remaining = max(0, _BOLETO_EXPIRY - (int(time.time()) - payload["t"]))
+        mins = remaining // 60
+        html = BOLETO_PAGE_HTML.replace("{{CLIENTA}}", payload["c"]).replace("{{BOLETOS}}", str(payload["b"])).replace("{{MINS}}", str(mins))
+    return web.Response(text=html, content_type="text/html", charset="utf-8")
+
+# ============================================================
 # ARRANCAR SERVIDOR
 # ============================================================
 async def start_web_server():
     app_web = web.Application()
     app_web.router.add_get("/", handle_index)
     app_web.router.add_get("/api/stats", handle_stats)
+    app_web.router.add_get("/api/boleto-link", handle_boleto_link)
+    app_web.router.add_get("/boleto/{token}", handle_boleto_page)
     runner = web.AppRunner(app_web)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
@@ -295,3 +353,82 @@ async def start_web_server():
 # ============================================================
 _html_path = pathlib.Path(__file__).parent / "dashboard.html"
 DASHBOARD_HTML = _html_path.read_text(encoding="utf-8")
+
+# ============================================================
+# BOLETO — Páginas HTML públicas
+# ============================================================
+BOLETO_PAGE_HTML = """<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎟️ Mis Boletos — Maricuchis Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+background:#0a0a0a;background-image:radial-gradient(circle at 50% 0%,rgba(139,92,246,0.2),transparent 60%);}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:40px;max-width:420px;width:100%;backdrop-filter:blur(20px);text-align:center;animation:fadeIn 0.6s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.logo{font-size:2rem;margin-bottom:8px;}
+.store{font-size:1.1rem;font-weight:700;background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:24px;}
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);margin:20px 0;}
+.name{font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:6px;}
+.label{font-size:0.8rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;}
+.boletos-num{font-size:4rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+.boletos-label{font-size:1rem;color:rgba(255,255,255,0.5);margin-top:4px;}
+.prizes{margin-top:24px;text-align:left;background:rgba(255,255,255,0.03);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.06);}
+.prizes h4{font-size:0.75rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;}
+.prize{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:0.85rem;color:rgba(255,255,255,0.7);}
+.prize span{font-size:1.1rem;}
+.footer{margin-top:24px;font-size:0.65rem;color:rgba(255,255,255,0.25);line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="logo">🌸</div>
+    <div class="store">Maricuchis Store</div>
+    <div class="divider"></div>
+    <div class="label">Boletos de</div>
+    <div class="name">{{CLIENTA}}</div>
+    <div class="divider"></div>
+    <div class="boletos-num">{{BOLETOS}}</div>
+    <div class="boletos-label">🎟️ boletos para el sorteo</div>
+    <div class="prizes">
+        <h4>🎁 Premios del sorteo</h4>
+        <div class="prize"><span>🥇</span> Paquete de prendas por S/100</div>
+        <div class="prize"><span>🥈</span> Paquete de prendas por S/50</div>
+        <div class="prize"><span>🥉</span> Paquete de prendas por S/20</div>
+    </div>
+    <div class="footer">
+        Este enlace es válido por {{MINS}} minutos más.<br>
+        Sorteo: Domingo 10 de Mayo a las 7:00 PM 🎉
+    </div>
+</div>
+</body>
+</html>"""
+
+BOLETO_EXPIRED_HTML = """<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Expirado</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Outfit',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#fff;text-align:center;padding:20px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:40px;max-width:380px;}
+</style></head><body><div class="card">
+<div style="font-size:3rem;margin-bottom:16px;">⏰</div>
+<h2 style="margin-bottom:8px;">Link Expirado</h2>
+<p style="color:rgba(255,255,255,0.5);font-size:0.9rem;">Este enlace ya no es válido. Solicita uno nuevo a Maricuchis Store.</p>
+<div style="margin-top:20px;font-size:1.2rem;">🌸</div>
+</div></body></html>"""
+
+BOLETO_INVALID_HTML = """<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Inválido</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Outfit',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#fff;text-align:center;padding:20px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:40px;max-width:380px;}
+</style></head><body><div class="card">
+<div style="font-size:3rem;margin-bottom:16px;">❌</div>
+<h2 style="margin-bottom:8px;">Link Inválido</h2>
+<p style="color:rgba(255,255,255,0.5);font-size:0.9rem;">Este enlace no es válido.</p>
+</div></body></html>"""

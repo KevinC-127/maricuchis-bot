@@ -222,9 +222,29 @@ body.light-mode {
     </div>
     <div class="panel">
       <h3>🎟️ Top Boletos</h3>
-      <p class="desc">Clientas con mayor cantidad de boletos acumulados para sorteos.</p>
+      <p class="desc">Haz clic en una clienta para generar un link con sus boletos.</p>
       <table><thead><tr><th>Clienta</th><th>Boletos</th></tr></thead><tbody id="boletosTable"></tbody></table>
     </div>
+  </div>
+
+  <!-- Modal Boleto Link -->
+  <div id="boletoModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);backdrop-filter:blur(5px);z-index:9999;justify-content:center;align-items:center;padding:20px;">
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:16px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.6);animation:modalFadeIn 0.3s ease;">
+      <div style="background:rgba(var(--white-rgb),0.05);padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:1.1rem;color:var(--text);display:flex;align-items:center;gap:8px;">🎟️ Link de Boletos</h3>
+        <button onclick="document.getElementById('boletoModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;">&times;</button>
+      </div>
+      <div style="padding:24px 20px;">
+        <div id="boletoModalName" style="font-weight:600;font-size:1rem;color:var(--purple);margin-bottom:4px;"></div>
+        <div id="boletoModalBoletos" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;"></div>
+        <div style="position:relative;">
+          <input type="text" id="boletoLinkInput" readonly style="width:100%;background:rgba(var(--white-rgb),0.06);border:1px solid var(--border);color:var(--text);padding:10px 80px 10px 12px;border-radius:8px;font-family:inherit;font-size:0.75rem;outline:none;">
+          <button onclick="copyBoletoLink()" id="boletoLinkBtn" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--purple);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.75rem;font-weight:bold;transition:0.2s;">Copiar</button>
+        </div>
+        <p style="font-size:0.7rem;color:var(--text-light);margin-top:10px;">⏳ Este link expira en 1 hora. Envíalo por WhatsApp a la clienta.</p>
+      </div>
+    </div>
+  </div>
   </div>
   </div>
 </div>
@@ -873,7 +893,10 @@ function updateUI(d){
   document.getElementById('mesTable').innerHTML=months.map(m=>{const mm=d.ventas_por_mes[m];const p=m.split('-');return `<tr><td>${p[1]}/${p[0]}</td><td>${mm.ventas} (${mm.uds} uds)</td><td><span class="tag tag-green">${Sn(mm.ganancia)}</span></td></tr>`;}).join('');
   
   if(d.top_boletos && d.top_boletos.length > 0) {
-      document.getElementById('boletosTable').innerHTML = d.top_boletos.slice(0, 8).map(b => `<tr><td>${b.nombre}</td><td><span class="tag tag-green" style="background:rgba(139,92,246,0.1);color:var(--purple)">${b.boletos}</span></td></tr>`).join('');
+      document.getElementById('boletosTable').innerHTML = d.top_boletos.slice(0, 8).map(b => {
+          const esc = b.nombre.replace(/'/g, "\\'");
+          return `<tr onclick="generateBoletoLink('${esc}', ${b.boletos})" style="cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.1)'" onmouseout="this.style.background='transparent'"><td>${b.nombre}</td><td><span class="tag tag-green" style="background:rgba(139,92,246,0.1);color:var(--purple)">${b.boletos}</span></td></tr>`;
+      }).join('');
   } else {
       document.getElementById('boletosTable').innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text-light)">Sin boletos</td></tr>';
   }
@@ -882,6 +905,34 @@ function updateUI(d){
   renderHeatmap(d.ventas_por_dia);
   renderVIP(d.top_clientes);
 }
+
+async function generateBoletoLink(clienta, boletos) {
+    document.getElementById('boletoModalName').textContent = clienta;
+    document.getElementById('boletoModalBoletos').textContent = `🎟️ ${boletos} boletos acumulados`;
+    document.getElementById('boletoLinkInput').value = 'Generando link...';
+    document.getElementById('boletoLinkBtn').textContent = 'Copiar';
+    document.getElementById('boletoModal').style.display = 'flex';
+    try {
+        const r = await fetch(`/api/boleto-link?clienta=${encodeURIComponent(clienta)}&boletos=${boletos}`);
+        const data = await r.json();
+        const url = `${window.location.origin}/boleto/${data.token}`;
+        document.getElementById('boletoLinkInput').value = url;
+    } catch(e) {
+        document.getElementById('boletoLinkInput').value = 'Error generando link';
+    }
+}
+
+function copyBoletoLink() {
+    const input = document.getElementById('boletoLinkInput');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        const btn = document.getElementById('boletoLinkBtn');
+        btn.textContent = '✓ Copiado';
+        btn.style.background = 'var(--green)';
+        setTimeout(() => { btn.textContent = 'Copiar'; btn.style.background = 'var(--purple)'; }, 2000);
+    });
+}
+
 function renderChart(id,type,data,options={}){if(charts[id])charts[id].destroy();const ctx=document.getElementById(id).getContext('2d');const b={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tMuted(),font:{family:'Outfit',size:11}}}},scales:{x:{grid:{color:tGrid()},ticks:{color:tMuted(),font:{size:10}}},y:{grid:{color:tGrid()},ticks:{color:tMuted(),font:{size:10}}}}};charts[id]=new Chart(ctx,{type,data,options:{...b,...options}});}
 loadData();setInterval(loadData,60000);
 </script>
