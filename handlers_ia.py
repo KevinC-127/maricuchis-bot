@@ -736,50 +736,70 @@ def _resumen_parcial_venta(datos):
 def _resolver_disambiguation(mensaje: str, candidatos: list) -> str | None:
     """
     Resuelve la respuesta del usuario contra una lista de candidatos.
-    Soporta:
-      - "sí", "sí esa", "esa", "la primera" → candidatos[0]
-      - "la segunda", "la 2", "2" → candidatos[1]
-      - "no, es capa murciélago" → busca coincidencia
-      - "ninguna", "cancelar" → "__ninguna__"
-    Retorna el nombre elegido, "__ninguna__", o None si no se resolvió.
+    Soporta voz y texto. Whisper puede transcribir números como texto o dígitos.
     """
-    msg = mensaje.strip().lower()
+    msg = mensaje.strip().lower().rstrip(".")
     
     # Cancelar/ninguna
-    if msg in ("ninguna", "cancelar", "ninguno", "no", "no ninguna"):
+    if msg in ("ninguna", "cancelar", "ninguno", "no", "no ninguna", "nada", "déjalo", "dejalo"):
         return "__ninguna__"
     
     # Afirmativo → primer candidato
-    if msg in ("sí", "si", "sí esa", "si esa", "esa", "esa misma", "la primera", "la 1", "1", "correcto"):
+    afirmativos = ("sí", "si", "sí esa", "si esa", "esa", "esa misma", "la primera",
+                   "la 1", "1", "correcto", "el primero", "el 1", "uno", "la uno",
+                   "la primera opción", "primera", "primero", "el uno")
+    if msg in afirmativos:
         return candidatos[0] if candidatos else None
     
-    # Ordinal o número
-    ordinal_map = {
-        "la segunda": 1, "la 2": 1, "2": 1, "segundo": 1, "segunda": 1,
-        "la tercera": 2, "la 3": 2, "3": 2, "tercero": 2, "tercera": 2,
-        "la cuarta": 3, "la 4": 3, "4": 3, "cuarto": 3, "cuarta": 3,
-        "la quinta": 4, "la 5": 4, "5": 4, "quinto": 4, "quinta": 4,
-        "la sexta": 5, "la 6": 5, "6": 5,
-        "la séptima": 6, "la 7": 6, "7": 6,
-        "la octava": 7, "la 8": 7, "8": 7,
+    # Mapa de texto a número (lo que Whisper puede transcribir)
+    texto_a_num = {
+        "uno": 0, "una": 0, "primero": 0, "primera": 0,
+        "dos": 1, "segundo": 1, "segunda": 1,
+        "tres": 2, "tercero": 2, "tercera": 2,
+        "cuatro": 3, "cuarto": 3, "cuarta": 3,
+        "cinco": 4, "quinto": 4, "quinta": 4,
+        "seis": 5, "sexto": 5, "sexta": 5,
+        "siete": 6, "séptimo": 6, "séptima": 6, "septimo": 6,
+        "ocho": 7, "octavo": 7, "octava": 7,
     }
-    if msg in ordinal_map:
-        idx = ordinal_map[msg]
-        return candidatos[idx] if idx < len(candidatos) else None
+    
+    # Extraer número del mensaje (formatos: "3", "el 3", "la 3", "número 3", "opción 3", "el tres")
+    import re
+    
+    # Primero intentar con dígitos
+    digit_match = re.search(r'\b(\d)\b', msg)
+    if digit_match:
+        idx = int(digit_match.group(1)) - 1  # Convertir a 0-indexed
+        if 0 <= idx < len(candidatos):
+            return candidatos[idx]
+    
+    # Luego con texto numérico
+    for palabra in msg.split():
+        palabra = palabra.strip(".,;:!?")
+        if palabra in texto_a_num:
+            idx = texto_a_num[palabra]
+            if 0 <= idx < len(candidatos):
+                return candidatos[idx]
     
     # "no, es X" → extraer X y buscar coincidencia
-    for prefix in ("no es ", "no, es ", "es ", "la ", "el "):
+    for prefix in ("no es ", "no, es ", "es ", "es la ", "es el "):
         if msg.startswith(prefix):
             busqueda = msg[len(prefix):].strip()
             for c in candidatos:
                 if busqueda in c.lower() or c.lower() in busqueda:
                     return c
-            # No coincidió exactamente, pero podría ser un nombre válido que no está en la lista
             return busqueda if len(busqueda) > 2 else None
     
     # Búsqueda directa por coincidencia parcial
     for c in candidatos:
         if msg in c.lower() or c.lower() in msg:
+            return c
+    
+    # Búsqueda por palabras clave (al menos 2 palabras coinciden)
+    palabras_msg = set(msg.split())
+    for c in candidatos:
+        palabras_c = set(c.lower().split())
+        if len(palabras_msg & palabras_c) >= 2:
             return c
     
     return None

@@ -2513,20 +2513,29 @@ async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text(f"❌ No pude entender el audio.\n{texto}")
             return
         
-        # 4. Mostrar transcripción brevemente y procesar con IA
-        await msg.edit_text(f"🎙️ _\"{texto}\"_\n\n🧠 Procesando...", parse_mode="Markdown")
-        
-        # 5. Pasar al cerebro IA
+        # 4. Verificar si hay sesión activa (para no mostrar "Procesando" extra)
         from handlers_ia import handle_ia_message
-        await handle_ia_message(update, context, texto)
+        from ia_brain import get_sesion
+        sesion = get_sesion(update.effective_chat.id)
         
-        # Borrar el mensaje de procesamiento si IA ya respondió
-        try:
-            await msg.delete()
-        except:
-            pass
+        if sesion:
+            # Hay sesión → mostrar solo transcripción, la IA responderá aparte
+            await msg.edit_text(f"🎙️ _\"{texto}\"_", parse_mode="Markdown")
+            await handle_ia_message(update, context, texto)
+        else:
+            # Sin sesión → mostrar transcripción + procesando
+            await msg.edit_text(f"🎙️ _\"{texto}\"_\n\n🧠 Procesando...", parse_mode="Markdown")
+            await handle_ia_message(update, context, texto)
+            # Borrar mensaje de procesamiento
+            try:
+                await msg.delete()
+            except:
+                pass
             
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error procesando audio: {e}")
-        await msg.edit_text("❌ Ocurrió un error al procesar el audio.")
+        import logging, traceback
+        logging.getLogger(__name__).error(f"Error procesando audio: {e}\n{traceback.format_exc()}")
+        try:
+            await msg.edit_text("❌ Error al procesar el audio. Intenta de nuevo.")
+        except:
+            await update.message.reply_text("❌ Error al procesar el audio. Intenta de nuevo.")
