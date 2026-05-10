@@ -533,7 +533,45 @@ async def _continuar_sesion(update, context, sesion, mensaje):
         if not faltantes:
             return
         
-        nuevos = await completar_datos("venta", mensaje, datos, faltantes, clientes=clientes, prendas=prendas)
+        # ANTES de buscar faltantes, ¿el usuario quiere editar algo existente o cancelar?
+        accion = _detectar_accion_voz(mensaje)
+        if accion == "cancelar":
+            cerrar_sesion(chat_id)
+            await update.message.reply_text("❌ Operación cancelada. 😉")
+            return
+        
+        if accion == "editar":
+            # Aplicar edición Y LUEGO seguir pidiendo faltantes
+            cambios = await _interpretar_edicion(mensaje, datos, "venta", clientes=clientes, prendas=prendas)
+            if cambios:
+                for k, v in cambios.items():
+                    if v is not None:
+                        if k == "items" and isinstance(v, list):
+                            for item_nuevo in v:
+                                for item_actual in datos.get("items", []):
+                                    if item_nuevo.get("prenda", "").lower() in item_actual.get("prenda", "").lower() or \
+                                       item_actual.get("prenda", "").lower() in item_nuevo.get("prenda", "").lower():
+                                        item_actual.update(item_nuevo)
+                                        break
+                        else:
+                            datos[k] = v
+                sesion["datos"] = datos
+                sesion["timestamp"] = __import__("time").time()
+            
+            faltantes = campos_faltantes_venta(datos)
+            if faltantes:
+                faltantes_txt = _formatear_faltantes_venta(faltantes)
+                resumen = _resumen_parcial_venta(datos)
+                await update.message.reply_text(f"✏️ Actualizado:\n{resumen}\n\n{faltantes_txt}", parse_mode="Markdown")
+            else:
+                resumen = formatear_resumen_venta(datos)
+                kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
+                       InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
+                await update.message.reply_text(f"✏️ Actualizado:\n{resumen}\n\n¿Confirmas?", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+            return
+        
+        # Intentar completar datos faltantes Y ediciones en un solo paso
+        nuevos = await _completar_y_editar(mensaje, datos, faltantes, clientes=clientes, prendas=prendas)
         
         if nuevos.get("sin_sentido"):
             faltantes_txt = _formatear_faltantes_venta(faltantes)
@@ -542,7 +580,15 @@ async def _continuar_sesion(update, context, sesion, mensaje):
         
         for k, v in nuevos.items():
             if v is not None and k != "sin_sentido":
-                datos[k] = v
+                if k == "items" and isinstance(v, list):
+                    for item_nuevo in v:
+                        for item_actual in datos.get("items", []):
+                            if item_nuevo.get("prenda", "").lower() in item_actual.get("prenda", "").lower() or \
+                               item_actual.get("prenda", "").lower() in item_nuevo.get("prenda", "").lower():
+                                item_actual.update(item_nuevo)
+                                break
+                else:
+                    datos[k] = v
         sesion["datos"] = datos
         sesion["timestamp"] = __import__("time").time()
         
@@ -799,8 +845,19 @@ def _detectar_accion_voz(mensaje: str) -> str:
         "en lugar de", "en vez de", "quiero que", "mejor",
         "la fecha", "el precio", "la cantidad", "el estado", "el cliente", "la clienta",
         "ponle", "ponlo", "que sea", "debería ser",
+        "solo quiero", "solamente", "nada más", "únicamente",
+        "no dos", "no tres", "sino", "en realidad",
     )
     if any(kw in msg for kw in edit_keywords):
+        return "editar"
+    
+    # Patrón: "una prenda de X, no dos" o "solo una"
+    import re
+    if re.search(r'\b(solo|solamente|nada más|únicamente)\s+(una?|dos|tres|\d+)\b', msg):
+        return "editar"
+    if re.search(r'\bno\s+(una?|dos|tres|cuatro|cinco|\d+)\b.*\bsino\b', msg):
+        return "editar"
+    if re.search(r'\b(una?|dos|tres|\d+)\s+(prenda|unidad)', msg):
         return "editar"
     
     return "desconocido"
@@ -920,6 +977,46 @@ Interpreta qué quiere cambiar y devuelve SOLO los campos a cambiar en JSON.
 Campos posibles: "nombre", "costo", "precio", "stock", "tienda"
 Ejemplo: si dice "el precio es 30" → {{"precio": 30}}
 Solo incluye los campos que cambian. Responde SOLO en JSON."""
+    
+    return await llamar_llm(system, mensaje)
+
+
+async def _completar_y_editar(mensaje: str, datos: dict, faltantes: list, **context_kwargs) -> dict:
+    """Combina completar datos faltantes Y editar datos existentes en un solo LLM call."""
+    from datetime import datetime
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    
+    items_str = "\n".join(f"- {it.get('prenda','?')} × {it.get('cantidad',1)} a S/{it.get('precio',0)}" for it in datos.get("items", []))
+    faltantes_str = ", ".join(faltantes)
+    
+    clientes = context_kwargs.get("clientes", [])
+    clientes_str = ", ".join(clientes[:30]) if clientes else "(ninguna)"
+    
+    system = f"""El usuario está en medio de registrar una venta. Lee su mensaje y extrae lo que puedas.
+
+DATOS ACTUALES:
+- Cliente: {datos.get('cliente', '?')}
+- Items: 
+{items_str}
+- Estado: {datos.get('estado', 'null')}
+- Fecha: {datos.get('fecha', 'null')}
+
+CAMPOS QUE FALTAN: {faltantes_str}
+
+FECHA DE HOY: {hoy}. "Ayer" = un día antes. "Hoy" = {hoy}.
+
+CLIENTAS: {clientes_str}
+
+INSTRUCCIONES:
+1. Si el mensaje proporciona datos faltantes, inclúyelos
+2. Si el mensaje pide CAMBIAR un dato existente (cantidad, precio, fecha, estado, cliente), aplica el cambio
+3. Si dice "solo quiero 1" o "solamente una" → cambiar cantidad del item a 1
+4. Si dice "pagó" o "pendiente" → poner estado
+5. Si el mensaje no tiene sentido → {{"sin_sentido": true}}
+
+Responde SOLO en JSON con los campos a actualizar/agregar:
+{{"estado": "Completado"/"Pendiente"/null, "fecha": "YYYY-MM-DD"/null, "cliente": "nombre"/null, "items": [{{"prenda": "nombre", "cantidad": N, "precio": N}}]/null}}
+Solo incluye campos que cambien o se agreguen."""
     
     return await llamar_llm(system, mensaje)
 
