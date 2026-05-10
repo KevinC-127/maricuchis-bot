@@ -128,7 +128,10 @@ Usa null para los datos no mencionados."""
 
 async def clasificar_intencion(mensaje: str) -> dict:
     """Clasifica la intención del mensaje del usuario."""
-    return await llamar_llm(SYSTEM_CLASIFICAR, mensaje)
+    from datetime import datetime
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    prompt = SYSTEM_CLASIFICAR + f"\n\nFECHA DE HOY: {hoy}. Usa esta fecha cuando digan 'hoy'. 'Ayer' = un día antes de hoy."
+    return await llamar_llm(prompt, mensaje)
 
 
 # ============================================================
@@ -136,6 +139,9 @@ async def clasificar_intencion(mensaje: str) -> dict:
 # ============================================================
 def build_extraction_prompt(intencion: str, clientes: list, prendas: list, tiendas: list) -> str:
     """Construye el prompt con contexto de la BD para extracción precisa."""
+    
+    from datetime import datetime
+    hoy = datetime.now().strftime("%Y-%m-%d")
     
     clientes_str = "\n".join(f"- {c}" for c in clientes[:60]) if clientes else "- (sin clientas registradas)"
     
@@ -177,7 +183,7 @@ REGLAS DE DATOS:
 - Si no dijo si pagó o no, pon estado null (se preguntará)
 - Si dijo "separó", "fió", "queda debiendo" → estado = "Pendiente"
 - Si dijo "pagó", "completo", "al contado" → estado = "Completado"
-- Si mencionó fecha ("ayer", "hace 2 días"), ponla; si no, pon null
+- FECHA DE HOY es {hoy}. Si dicen "hoy" usa {hoy}. Si dicen "ayer" resta 1 día. Si no mencionan fecha, pon null.
 - Los números en texto ("dos") conviértelos a dígitos (2)
 
 Responde SOLO en JSON:

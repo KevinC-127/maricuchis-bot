@@ -182,6 +182,33 @@ async def _iniciar_venta(update, context, msg, mensaje):
         await msg.edit_text(f"🛒 Venta parcial:{extra}\n{prob_txt}\nEscribe el nombre correcto de la(s) prenda(s) faltantes.", parse_mode="Markdown")
         return
 
+    # === VALIDAR CLIENTE ===
+    cliente_raw = datos.get("cliente", "")
+    if cliente_raw and not datos.get("cliente_exacto", False):
+        # Buscar coincidencias en la lista real
+        cliente_lower = cliente_raw.lower()
+        coincidencias = [c for c in clientes if cliente_lower in c.lower() or any(w in c.lower() for w in cliente_lower.split() if len(w) > 2)]
+        
+        candidatos_llm = datos.get("candidatos", [])
+        if candidatos_llm:
+            coincidencias = list(set(coincidencias + candidatos_llm))
+        
+        if len(coincidencias) == 1:
+            datos["cliente"] = coincidencias[0]
+            datos["cliente_exacto"] = True
+        elif len(coincidencias) > 1:
+            opts = "\n".join(f"  • {c}" for c in coincidencias[:6])
+            datos["_cliente_pendiente"] = True
+            crear_sesion(chat_id, "registrar_venta", datos)
+            resumen = _resumen_parcial_venta(datos)
+            await msg.edit_text(f"✉️ Entendí \"{cliente_raw}\". \u00bfTe refieres a alguna de estas clientas?\n{opts}\n\n_Escribe el nombre correcto o di 'nueva' para registrar una nueva clienta_", parse_mode="Markdown")
+            return
+        else:
+            datos["_cliente_pendiente"] = True
+            crear_sesion(chat_id, "registrar_venta", datos)
+            await msg.edit_text(f"\u2753 No encontré \"{cliente_raw}\" en las clientas registradas.\n\n\u00bfQuieres registrarla como nueva clienta o corregir el nombre?", parse_mode="Markdown")
+            return
+
     # Crear sesión con items validados
     crear_sesion(chat_id, "registrar_venta", datos)
     faltantes = campos_faltantes_venta(datos)
@@ -189,7 +216,7 @@ async def _iniciar_venta(update, context, msg, mensaje):
     if faltantes:
         faltantes_txt = _formatear_faltantes_venta(faltantes)
         resumen_parcial = _resumen_parcial_venta(datos)
-        await msg.edit_text(f"✏️ Entendí:\n{resumen_parcial}\n\n❓ Me falta:\n{faltantes_txt}", parse_mode="Markdown")
+        await msg.edit_text(f"✏️ Entendí:\n{resumen_parcial}\n\n{faltantes_txt}", parse_mode="Markdown")
     else:
         resumen = formatear_resumen_venta(datos)
         kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
@@ -270,15 +297,28 @@ async def _procesar_consulta(update, context, msg, mensaje, intencion):
     
     prenda_buscar = datos.get("prenda", "")
     
-    if intencion in ("consultar_stock", "consultar_precio") and prenda_buscar:
+    if intencion in ("consultar_stock", "consultar_precio"):
+        if not prenda_buscar:
+            await msg.edit_text("❓ ¿De qué prenda quieres saber? Dime el nombre.")
+            return
+        
         # Buscar en inventario
         matches = [p for p in prendas if prenda_buscar.lower() in p["nombre"].lower()]
+        if not matches:
+            # Búsqueda flexible por palabras
+            palabras = prenda_buscar.lower().split()
+            matches = [p for p in prendas if any(w in p["nombre"].lower() for w in palabras if len(w) > 2)]
+        
         if not matches:
             await msg.edit_text(f"❌ No encontré \"{prenda_buscar}\" en el inventario.")
             return
         
-        resp = ""
-        for p in matches[:5]:
+        if len(matches) > 8:
+            matches = matches[:8]
+        
+        header = f"🔍 *{len(matches)} resultado{'s' if len(matches)>1 else ''} para \"{prenda_buscar}\":*\n\n"
+        resp = header
+        for p in matches:
             estado = p.get("estado", "")
             resp += f"👗 *{p['nombre']}*\n  📦 Stock: {p.get('stock',0)} uds | {estado}\n  💰 Precio: S/{p.get('precio',0)} | Costo u.: S/{p.get('costo_u',0)}\n\n"
         await msg.edit_text(resp.strip(), parse_mode="Markdown")
@@ -296,7 +336,16 @@ async def _procesar_consulta(update, context, msg, mensaje, intencion):
         await msg.edit_text(resp.strip(), parse_mode="Markdown")
     
     else:
-        await msg.edit_text("🔍 Consulta procesada. Usa el dashboard para ver datos detallados por fecha.")
+        # Consulta genérica - intentar responder si hay prenda
+        if prenda_buscar:
+            matches = [p for p in prendas if prenda_buscar.lower() in p["nombre"].lower()]
+            if matches:
+                resp = f"🔍 *Resultados para \"{prenda_buscar}\":*\n\n"
+                for p in matches[:8]:
+                    resp += f"👗 *{p['nombre']}*\n  📦 Stock: {p.get('stock',0)} | 💰 S/{p.get('precio',0)}\n\n"
+                await msg.edit_text(resp.strip(), parse_mode="Markdown")
+                return
+        await msg.edit_text("🔍 No pude resolver la consulta. Intenta ser más específico o usa /menu")
 
 
 # ============================================================
@@ -342,7 +391,40 @@ async def _continuar_sesion(update, context, sesion, mensaje):
             await update.message.reply_text(f"{resumen}\n\n¿Confirmas?", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
     
     elif tipo == "registrar_venta":
+        # ¿Estamos esperando resolución de cliente?
+        if datos.get("_cliente_pendiente"):
+            msg_lower = mensaje.strip().lower()
+            if msg_lower == "nueva":
+                # Registrar como nueva clienta
+                datos["cliente_exacto"] = True
+                datos.pop("_cliente_pendiente", None)
+            else:
+                # Buscar coincidencia exacta con lo que escribió
+                match = [c for c in clientes if msg_lower in c.lower() or c.lower() in msg_lower]
+                if len(match) == 1:
+                    datos["cliente"] = match[0]
+                    datos["cliente_exacto"] = True
+                    datos.pop("_cliente_pendiente", None)
+                elif len(match) > 1:
+                    opts = "\n".join(f"  • {c}" for c in match[:6])
+                    await update.message.reply_text(f"Aún hay varias opciones:\n{opts}\n\n_Escribe el nombre exacto_", parse_mode="Markdown")
+                    return
+                else:
+                    datos["cliente"] = mensaje.strip()
+                    datos["cliente_exacto"] = True
+                    datos.pop("_cliente_pendiente", None)
+            
+            sesion["datos"] = datos
+            sesion["timestamp"] = __import__("time").time()
+        
         faltantes = campos_faltantes_venta(datos)
+        if not faltantes and not datos.get("_cliente_pendiente"):
+            resumen = formatear_resumen_venta(datos)
+            kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
+                   InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
+            await update.message.reply_text(f"{resumen}\n\n¿Confirmas?", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+            return
+        
         if not faltantes:
             return
         
@@ -363,7 +445,7 @@ async def _continuar_sesion(update, context, sesion, mensaje):
         if faltantes:
             faltantes_txt = _formatear_faltantes_venta(faltantes)
             resumen = _resumen_parcial_venta(datos)
-            await update.message.reply_text(f"✏️ Actualizado:\n{resumen}\n\n❓ Aún falta:\n{faltantes_txt}", parse_mode="Markdown")
+            await update.message.reply_text(f"✏️ Actualizado:\n{resumen}\n\n{faltantes_txt}", parse_mode="Markdown")
         else:
             resumen = formatear_resumen_venta(datos)
             kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
@@ -578,12 +660,12 @@ async def _ejecutar_pendientes(update, context, sesion):
 # HELPERS DE FORMATO
 # ============================================================
 def _formatear_faltantes_prenda(faltantes):
-    labels = {"nombre": "Nombre de la prenda", "costo": "Precio de costo (del lote)", "precio": "Precio de venta (por unidad)", "stock": "Cantidad de unidades", "tienda": "De qué tienda"}
-    return "\n".join(f"❓ _{labels.get(f, f)}_" for f in faltantes)
+    labels = {"nombre": "❓ Nombre de la prenda", "costo": "❓ Precio de costo (del lote)", "precio": "❓ Precio de venta (por unidad)", "stock": "❓ Cantidad de unidades", "tienda": "❓ De qué tienda"}
+    return "\n".join(f"_{labels.get(f, f)}_" for f in faltantes)
 
 def _formatear_faltantes_venta(faltantes):
-    labels = {"cliente": "¿A qué clienta?", "prenda": "¿Qué prenda(s)?", "estado": "¿Pagó o queda pendiente?"}
-    return "\n".join(f"❓ _{labels.get(f, f)}_" for f in faltantes)
+    labels = {"cliente": "❓ ¿A qué clienta?", "prenda": "❓ ¿Qué prenda(s)?", "estado": "❓ ¿Pagó o queda pendiente?"}
+    return "\n".join(f"_{labels.get(f, f)}_" for f in faltantes)
 
 def _resumen_parcial_prenda(datos):
     parts = []
