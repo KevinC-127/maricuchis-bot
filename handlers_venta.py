@@ -79,7 +79,7 @@ async def venta_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_T
         return ConversationHandler.END
         
     context.user_data["item_actual"] = {"prenda": prenda}
-    await query.edit_message_text(f"Seleccionada: {prenda['nombre']}\nStock: {prenda['stock']} | Precio: S/{prenda['precio']:.0f}\n\n¿Cuántas unidades vendiste de esta prenda?")
+    await query.edit_message_text(f"Seleccionada: {prenda['nombre']}\nStock: {prenda['stock']} | Precio: S/{prenda['precio']:.2f}\n\n¿Cuántas unidades vendiste de esta prenda?")
     return VENTA_CANTIDAD
 
 async def venta_recibir_cantidad(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -98,14 +98,14 @@ async def venta_recibir_cantidad(update: Update, context: ContextTypes.DEFAULT_T
     filas_descuentos = []
     current_row = []
     for d in range(1, 11):
-        btn = InlineKeyboardButton(f"- S/{d}", callback_data=f"precio_venta_{prenda['precio'] - d:.0f}")
+        btn = InlineKeyboardButton(f"- S/{d}", callback_data=f"precio_venta_{prenda['precio'] - d:.2f}")
         current_row.append(btn)
         if len(current_row) == 5: # 5 botones por fila
             filas_descuentos.append(current_row)
             current_row = []
     
     botones = [
-        [InlineKeyboardButton(f"Sin descuento (S/ {prenda['precio']:.0f})", callback_data=f"precio_venta_{prenda['precio']:.0f}")],
+        [InlineKeyboardButton(f"Sin descuento (S/ {prenda['precio']:.2f})", callback_data=f"precio_venta_{prenda['precio']:.2f}")],
         *filas_descuentos,
         [InlineKeyboardButton("⬅️ Volver", callback_data="volver_cantidad")]
     ]

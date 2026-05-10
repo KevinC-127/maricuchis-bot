@@ -200,12 +200,12 @@ def resumen_prenda(nombre, costo, precio, stock, tienda=None, fecha=None) -> str
         "Guardado en Notion!",
         "",
         f"Prenda: {nombre}",
-        f"Costo total: S/{costo:.0f}",
+        f"Costo total: S/{costo:.2f}",
         f"Costo unitario: S/{costo_unit:.2f}",
-        f"Precio venta: S/{precio:.0f}",
+        f"Precio venta: S/{precio:.2f}",
         f"Stock inicial: {stock} unidades",
         f"Estado: {estado}",
-        f"Ganancia por unidad: S/{ganancia:.0f} ({margen:.0f}%)",
+        f"Ganancia por unidad: S/{ganancia:.2f} ({margen:.2f}%)",
     ]
     if tienda:
         partes.append(f"Tienda: {tienda}")
@@ -632,7 +632,7 @@ def _sync_buscar_ventas_notion(termino: str) -> list:
         cliente    = cliente_rt[0]["text"]["content"] if cliente_rt else ""
         estado_s   = props.get("Estado", {}).get("select") or {}
         estado     = estado_s.get("name", "")
-        lbl = f"{nombre} | {cantidad}ud x S/{precio:.0f} | {fecha}"
+        lbl = f"{nombre} | {cantidad}ud x S/{precio:.2f} | {fecha}"
         if cliente:
             lbl = f"👤{cliente} | {lbl}"
         if estado:
@@ -685,7 +685,7 @@ def _sync_fetch_ventas_pendientes() -> list:
             "precio":   precio,
             "fecha":    fecha,
             "cliente":  cliente or "Sin Cliente",
-            "label":    f"{lbl_cli} | {nombre} | {cantidad}ud x S/{precio:.0f}",
+            "label":    f"{lbl_cli} | {nombre} | {cantidad}ud x S/{precio:.2f}",
         })
     
     # Ordenar alfabéticamente por cliente para que aparezcan agrupados en el checklist
@@ -723,10 +723,10 @@ async def _formato_stock(prenda: dict) -> str:
         f"Stock inicial:   {stock_ini} uds",
         f"Vendidas:        {vendidas} uds ({pct_vendido}%)",
         f"Estado:          {estado}", "",
-        f"Precio venta:    S/{prenda['precio']:.0f}",
+        f"Precio venta:    S/{prenda['precio']:.2f}",
         f"Costo unitario:  S/{costo_u:.2f}",
-        f"Costo total:     S/{costo_total:.0f}",
-        f"Ganancia/ud:     S/{ganancia_u:.0f} ({margen}%)",
+        f"Costo total:     S/{costo_total:.2f}",
+        f"Ganancia/ud:     S/{ganancia_u:.2f} ({margen}%)",
     ]
     if tienda:
         lineas.append(f"Tienda:          {tienda}")
@@ -742,15 +742,15 @@ async def _formato_stock(prenda: dict) -> str:
             nombres = sorted({v["cliente"] for v in hist["ventas"] if v["cliente"]})
             if nombres:
                 lineas.append("Compradoras:     " + ", ".join(nombres))
-        lineas.append(f"Ganancia total:  S/{hist['total_ganancia']:.0f}")
+        lineas.append(f"Ganancia total:  S/{hist['total_ganancia']:.2f}")
         if hist['total_uds'] > 0:
             gan_prom = hist['total_ganancia'] / hist['total_uds']
-            lineas.append(f"Ganancia/ud:     S/{gan_prom:.0f}")
+            lineas.append(f"Ganancia/ud:     S/{gan_prom:.2f}")
         lineas.append("")
         for v in hist["ventas"]:
             fecha_fmt  = v["fecha"][5:7] + "/" + v["fecha"][8:10] + "/" + v["fecha"][:4]
             cliente_str = f" — {v['cliente']}" if v["cliente"] else ""
-            lineas.append(f"  {fecha_fmt}  {v['cantidad']} ud  S/{v['precio_venta']:.0f}  +S/{v['ganancia']:.0f}{cliente_str}")
+            lineas.append(f"  {fecha_fmt}  {v['cantidad']} ud  S/{v['precio_venta']:.2f}  +S/{v['ganancia']:.2f}{cliente_str}")
     else:
         lineas += ["", "Sin ventas registradas aún."]
     return "\n".join(lineas)
@@ -782,7 +782,7 @@ def _sync__texto_agotados() -> str:
         return "Todo bien! No hay prendas agotadas ahora mismo."
     lineas = [f"Prendas agotadas ({len(agotadas)}):\n"]
     for p in agotadas:
-        lineas.append(f"- {p['nombre']} - S/{p['precio']:.0f}")
+        lineas.append(f"- {p['nombre']} - S/{p['precio']:.2f}")
     return "\n".join(lineas)
 
 # ============================================================

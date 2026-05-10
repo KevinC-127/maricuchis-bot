@@ -86,7 +86,7 @@ async def cmd_limitadas(update: Update, context: ContextTypes.DEFAULT_TYPE):
     limitadas.sort(key=lambda p: p["stock"])
     lineas = [f"Prendas con stock bajo ({len(limitadas)}):\n"]
     for p in limitadas:
-        lineas.append(f"  {p['nombre']}\n  Stock: {p['stock']} uds | Precio: S/{p['precio']:.0f}")
+        lineas.append(f"  {p['nombre']}\n  Stock: {p['stock']} uds | Precio: S/{p['precio']:.2f}")
     await _reply(update, "\n".join(lineas))
 
 # ============================================================
@@ -111,13 +111,13 @@ async def cmd_ganancia(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lineas = [
         "Resumen de ganancias\n",
         f"Unidades vendidas:  {total_vendidas} uds",
-        f"Ingresos totales:   S/{ingreso_total:.0f}",
-        f"Ganancia realizada: S/{ganancia_total:.0f}  (ROI {roi}%)",
-        f"Ganancia potencial: S/{ganancia_pot:.0f}  (stock restante)",
+        f"Ingresos totales:   S/{ingreso_total:.2f}",
+        f"Ganancia realizada: S/{ganancia_total:.2f}  (ROI {roi}%)",
+        f"Ganancia potencial: S/{ganancia_pot:.2f}  (stock restante)",
         "", "Top 3 más rentables:",
     ]
     for i, p in enumerate(top3, 1):
-        lineas.append(f"  {i}. {p['nombre']} — S/{p['ganancia_real']:.0f}")
+        lineas.append(f"  {i}. {p['nombre']} — S/{p['ganancia_real']:.2f}")
     await _reply(update, "\n".join(lineas))
 
 async def cmd_agotados(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -355,7 +355,7 @@ async def recibir_foto_nueva(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if costo <= 0 or precio <= 0 or stock <= 0:
         await msg.reply_text("El costo, precio y stock deben ser mayores a 0. Revisa.")
         return
-    aviso_precio = f"\n\n💡 Precio calculado automáticamente: S/{precio:.0f}" if precio_auto else ""
+    aviso_precio = f"\n\n💡 Precio calculado automáticamente: S/{precio:.2f}" if precio_auto else ""
     await msg.reply_text("Subiendo foto y guardando en inventario...")
     foto      = msg.photo[-1]
     archivo   = await context.bot.get_file(foto.file_id)
@@ -396,7 +396,7 @@ async def np_recibir_costo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # precio sugerido (se calcula más tarde cuando se tenga el stock)
     context.user_data["np_costo_guardado"] = costo
     await update.message.reply_text(
-        f"Costo total: S/{costo:.0f}\n\n"
+        f"Costo total: S/{costo:.2f}\n\n"
         "🏷️ ¿Cuál es el *precio de venta* por unidad?\n"
         "Escribe el precio o presiona el botón para calcular automáticamente:",
         reply_markup=InlineKeyboardMarkup([
@@ -434,7 +434,7 @@ async def np_recibir_precio_manual(update: Update, context: ContextTypes.DEFAULT
     context.user_data["np_precio"] = precio
     context.user_data["np_precio_auto"] = False
     await update.message.reply_text(
-        f"Precio: S/{precio:.0f}\n\n"
+        f"Precio: S/{precio:.2f}\n\n"
         "📦 ¿En qué *unidad* compraste el stock?",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Docenas 📦", callback_data="np_stock_doc")],
@@ -593,7 +593,7 @@ async def np_volver_precio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("np_precio_auto", None)
     costo = context.user_data.get("np_costo_guardado", 0)
     await query.message.reply_text(
-        f"Costo total: S/{costo:.0f}\n\n"
+        f"Costo total: S/{costo:.2f}\n\n"
         "🏷️ ¿Cuál es el *precio de venta* por unidad?\n"
         "Escribe el precio o presiona el botón para calcular automáticamente:",
         parse_mode="Markdown",
@@ -708,7 +708,7 @@ async def _guardar_nueva_prenda(update, context, foto_url=None):
         precio  = calcular_precio_sugerido(costo_u)
     else:
         precio  = context.user_data.get("np_precio", 0)
-    aviso_precio = f"\n💡 Precio sugerido automático: S/{precio:.0f}" if precio_auto else ""
+    aviso_precio = f"\n💡 Precio sugerido automático: S/{precio:.2f}" if precio_auto else ""
     await (update.callback_query.message if update.callback_query else update.message).reply_text(
         "Guardando en inventario..."
     )
@@ -981,7 +981,7 @@ async def venta_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data["prenda_venta"] = disponibles[0]
         p = disponibles[0]
         await update.message.reply_text(
-            f"{p['nombre']}\n{p['stock']} unidades disponibles | Precio: S/{p['precio']:.0f}\n\n¿Cuántas unidades vendiste?"
+            f"{p['nombre']}\n{p['stock']} unidades disponibles | Precio: S/{p['precio']:.2f}\n\n¿Cuántas unidades vendiste?"
         )
         return VENTA_CANTIDAD
     context.user_data["prendas_encontradas"] = {p["id"]: p for p in disponibles}
@@ -1013,7 +1013,7 @@ async def venta_confirmar_prenda(update: Update, context: ContextTypes.DEFAULT_T
         return ConversationHandler.END
     context.user_data["prenda_venta"] = prenda
     await query.edit_message_text(
-        f"{prenda['nombre']}\n{prenda['stock']} unidades disponibles | Precio: S/{prenda['precio']:.0f}\n\n¿Cuántas unidades vendiste?"
+        f"{prenda['nombre']}\n{prenda['stock']} unidades disponibles | Precio: S/{prenda['precio']:.2f}\n\n¿Cuántas unidades vendiste?"
     )
     return VENTA_CANTIDAD
 
@@ -1035,7 +1035,7 @@ async def venta_recibir_cantidad(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data["venta_cantidad"] = cantidad
     precio_std = prenda["precio"]
     teclado = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"Precio normal S/{precio_std:.0f}", callback_data="precio_venta_std")],
+        [InlineKeyboardButton(f"Precio normal S/{precio_std:.2f}", callback_data="precio_venta_std")],
         [InlineKeyboardButton("⬅️ Volver", callback_data="volver_cantidad")],
         [InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")],
     ])
@@ -1176,7 +1176,7 @@ async def venta_recibir_descuento(update: Update, context: ContextTypes.DEFAULT_
     else:
         precio_actual = context.user_data.get("venta_precio_venta", 0)
         await query.message.reply_text(
-            f"Precio registrado: S/{precio_actual:.0f}\n"
+            f"Precio registrado: S/{precio_actual:.2f}\n"
             "¿Cuánto fue el descuento? (en soles)\n"
             "Ejemplo: 1 o 2"
         )
@@ -1193,8 +1193,8 @@ async def venta_recibir_descuento_monto(update: Update, context: ContextTypes.DE
     context.user_data["venta_descuento"] = descuento
     precio_actual = context.user_data.get("venta_precio_venta", 0)
     await update.message.reply_text(
-        f"✅ Descuento de S/{descuento:.0f} registrado. "
-        f"Precio final: S/{precio_actual - descuento:.0f}"
+        f"✅ Descuento de S/{descuento:.2f} registrado. "
+        f"Precio final: S/{precio_actual - descuento:.2f}"
     )
     await pregunta_fecha(update.message)
     return VENTA_FECHA
@@ -1219,7 +1219,7 @@ async def venta_volver_precio(update: Update, context: ContextTypes.DEFAULT_TYPE
     prenda = context.user_data.get("prenda_venta")
     precio_std = prenda["precio"]
     teclado = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"Precio normal S/{precio_std:.0f}", callback_data="precio_venta_std")],
+        [InlineKeyboardButton(f"Precio normal S/{precio_std:.2f}", callback_data="precio_venta_std")],
         [InlineKeyboardButton("⬅️ Volver", callback_data="volver_cantidad")],
         [InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")],
     ])
@@ -1277,13 +1277,13 @@ async def _finalizar_venta(update, context):
             asunto=f"Compra de {cantidad}x {prenda['nombre']}",
             fecha_iso=fecha
         )
-    descuento_linea = f"\nDescuento:  -S/{descuento:.0f}" if descuento > 0 else ""
+    descuento_linea = f"\nDescuento:  -S/{descuento:.2f}" if descuento > 0 else ""
     msg = (
         f"✅ Venta registrada!\n\n"
         f"Prenda: {prenda['nombre']}\n"
-        f"Vendidas: {cantidad} uds a S/{precio_venta:.0f}"
+        f"Vendidas: {cantidad} uds a S/{precio_venta:.2f}"
         f"{descuento_linea}\n"
-        f"Ganancia: S/{ganancia_tot:.0f}\n"
+        f"Ganancia: S/{ganancia_tot:.2f}\n"
         f"Stock restante: {nuevo_stock} uds"
     )
     if nuevo_stock == 0:
@@ -1754,12 +1754,12 @@ async def comparar_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     no_encontradas = []
     campos = [
         ("Stock actual", lambda p: f"{p['stock']} uds"),
-        ("Precio", lambda p: f"S/{p['precio']:.0f}"),
+        ("Precio", lambda p: f"S/{p['precio']:.2f}"),
         ("Costo unit.", lambda p: f"S/{p['costo_u']:.2f}"),
-        ("Ganancia/ud", lambda p: f"S/{p['ganancia_u']:.0f}"),
+        ("Ganancia/ud", lambda p: f"S/{p['ganancia_u']:.2f}"),
         ("Margen", lambda p: f"{p['margen']}%"),
         ("Vendidas", lambda p: f"{p['vendidas']} uds"),
-        ("Ganancia total", lambda p: f"S/{p['ganancia_real']:.0f}"),
+        ("Ganancia total", lambda p: f"S/{p['ganancia_real']:.2f}"),
     ]
     for termino in terminos:
         res = [p for p in inventario if termino.lower() in p["nombre"].lower()]
@@ -2044,8 +2044,8 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
         f"📅 *Ganancias — {etiqueta}*\n",
         f"Ventas registradas: {n_ventas}",
         f"Unidades vendidas:  {total_uds} uds",
-        f"Ingresos:           S/{total_ing:.0f}",
-        f"Ganancia neta:      S/{total_gan:.0f}",
+        f"Ingresos:           S/{total_ing:.2f}",
+        f"Ganancia neta:      S/{total_gan:.2f}",
     ]
     if pendientes > 0:
         lineas.append(f"⏳ Pendientes:       {pendientes}")
@@ -2053,7 +2053,7 @@ async def cmd_ganancias_por_fecha(update: Update, context: ContextTypes.DEFAULT_
     for v in ventas:
         cli = f" → {v['cliente']}" if v["cliente"] else ""
         pend = " ⏳" if v["estado"] == "Pendiente" else ""
-        lineas.append(f"  • {v['prenda']} x{v['cantidad']}  +S/{v['ganancia']:.0f}{cli}{pend}")
+        lineas.append(f"  • {v['prenda']} x{v['cantidad']}  +S/{v['ganancia']:.2f}{cli}{pend}")
 
     teclado = InlineKeyboardMarkup([
         [InlineKeyboardButton("⬅️ Volver", callback_data="fin_porfecha")],
@@ -2101,9 +2101,9 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "━━━ 💵 VENTAS REALES ━━━",
         f"Total de ventas: {v['num_ventas']}",
         f"Unidades vendidas: {v['uds']} uds",
-        f"Ingresos cobrados: S/{v['ingresos']:.0f}",
-        f"Ganancia bruta: S/{v['ganancia']:.0f}",
-        f"Descuentos otorgados: -S/{v['descuentos']:.0f}",
+        f"Ingresos cobrados: S/{v['ingresos']:.2f}",
+        f"Ganancia bruta: S/{v['ganancia']:.2f}",
+        f"Descuentos otorgados: -S/{v['descuentos']:.2f}",
     ]
     if v["pendientes"] > 0:
         lineas.append(f"⏳ Ventas pendientes: {v['pendientes']}")
@@ -2111,33 +2111,33 @@ async def cmd_resumen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lineas += [
         "",
         "━━━ 📅 VENTAS POR PERÍODO ━━━",
-        f"Hoy:     S/{v['hoy_ing']:.0f} ingreso → S/{v['hoy_gan']:.0f} ganancia",
-        f"Semana:  S/{v['semana_ing']:.0f} ingreso → S/{v['semana_gan']:.0f} ganancia",
-        f"Mes:     S/{v['mes_ing']:.0f} ingreso → S/{v['mes_gan']:.0f} ganancia",
+        f"Hoy:     S/{v['hoy_ing']:.2f} ingreso → S/{v['hoy_gan']:.2f} ganancia",
+        f"Semana:  S/{v['semana_ing']:.2f} ingreso → S/{v['semana_gan']:.2f} ganancia",
+        f"Mes:     S/{v['mes_ing']:.2f} ingreso → S/{v['mes_gan']:.2f} ganancia",
     ]
 
     if v["gastos"] > 0:
         lineas += [
             "",
             "━━━ 💸 GASTOS ━━━",
-            f"Total gastos: S/{v['gastos']:.0f}",
-            f"🟢 Ganancia NETA (ganancia - gastos): S/{v['ganancia_neta']:.0f}",
+            f"Total gastos: S/{v['gastos']:.2f}",
+            f"🟢 Ganancia NETA (ganancia - gastos): S/{v['ganancia_neta']:.2f}",
         ]
 
     lineas += [
         "",
         "━━━ 📈 RENDIMIENTO ━━━",
-        f"Total invertido: S/{total_invertido:.0f}",
-        f"Recuperado: S/{v['ingresos']:.0f} ({recuperado_pct}%)",
+        f"Total invertido: S/{total_invertido:.2f}",
+        f"Recuperado: S/{v['ingresos']:.2f} ({recuperado_pct}%)",
         f"ROI: {roi}%",
     ]
 
     lineas += [
         "",
         "━━━ 🏪 STOCK RESTANTE ━━━",
-        f"Inversión en stock: S/{inversion_rest:.0f}",
-        f"Valor de venta: S/{valor_stock_rest:.0f}",
-        f"Ganancia potencial: S/{ganancia_pot:.0f}",
+        f"Inversión en stock: S/{inversion_rest:.2f}",
+        f"Valor de venta: S/{valor_stock_rest:.2f}",
+        f"Ganancia potencial: S/{ganancia_pot:.2f}",
     ]
 
     if v["top_prenda"]:
@@ -2170,7 +2170,7 @@ async def cmd_por_margen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, p in enumerate(ranking, 1):
         lineas.append(
             f"{i:2}. {p['nombre']}\n"
-            f"    Margen: {p['margen']}% | Ganancia/ud: S/{p['ganancia_u']:.0f} | Stock: {p['stock']}"
+            f"    Margen: {p['margen']}% | Ganancia/ud: S/{p['ganancia_u']:.2f} | Stock: {p['stock']}"
         )
     teclado = InlineKeyboardMarkup([
         [InlineKeyboardButton("⬅️ Volver", callback_data="menu_ganancias")],
@@ -2197,8 +2197,8 @@ async def cmd_por_tienda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for t, datos in sorted(tiendas.items()):
         lineas.append(f"📍 {t}")
         lineas.append(f"   Prendas:   {len(datos['prendas'])}")
-        lineas.append(f"   Inversión: S/{datos['inversion']:.0f}")
-        lineas.append(f"   Ganancia:  S/{datos['ganancia']:.0f}\n")
+        lineas.append(f"   Inversión: S/{datos['inversion']:.2f}")
+        lineas.append(f"   Ganancia:  S/{datos['ganancia']:.2f}\n")
     teclado = InlineKeyboardMarkup([
         [InlineKeyboardButton("⬅️ Volver", callback_data="menu_ganancias")],
         [InlineKeyboardButton("❌ Cancelar", callback_data="menu_inicio")],
@@ -2328,11 +2328,11 @@ async def cmd_auditar_ventas(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "─── Detalle de correcciones ───",
     ]
     for d in dets:
-        antes   = f"S/{d['antes']:.0f}" if d["antes"] is not None else "vacío"
+        antes   = f"S/{d['antes']:.2f}" if d["antes"] is not None else "vacío"
         lineas.append(
             f"• {d['prenda']}\n"
-            f"  {d['cantidad']} uds × (S/{d['precio']:.0f} - S/{d['costo_u']:.0f}) "
-            f"= S/{d['despues']:.0f}  (antes: {antes})"
+            f"  {d['cantidad']} uds × (S/{d['precio']:.2f} - S/{d['costo_u']:.2f}) "
+            f"= S/{d['despues']:.2f}  (antes: {antes})"
         )
     if err > 0:
         lineas.append(f"\n⚠️ {err} registro(s) no se pudieron corregir.")
@@ -2392,7 +2392,7 @@ async def cmd_top_clientes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     for i, (cli, datos) in enumerate(top, 1):
         lineas.append(f"{i}. *{cli}*")
-        lineas.append(f"   Ganancia: S/{datos['ganancia']:.0f} | Uds: {datos['cantidad']} | Compras: {datos['compras']}")
+        lineas.append(f"   Ganancia: S/{datos['ganancia']:.2f} | Uds: {datos['cantidad']} | Compras: {datos['compras']}")
         
     teclado = InlineKeyboardMarkup([
         [InlineKeyboardButton("⬅️ Volver", callback_data="menu_ganancias")],
