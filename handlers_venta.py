@@ -369,6 +369,12 @@ async def venta_guardar(msg_obj, context: ContextTypes.DEFAULT_TYPE):
             estado=estado_pago
         )
         if exito:
+            # Registrar en tracker del dashboard para evitar boletos duplicados
+            if estado_pago == "Completado" and isinstance(exito, str):
+                try:
+                    from dashboard import _ventas_completadas_procesadas
+                    _ventas_completadas_procesadas.add(exito)
+                except: pass
             await actualizar_stock_notion(p["id"], p["stock"] - c)
             mensajes.append(f"✅ {c}x {p['nombre']} (-S/{descuento_total_fila:.1f} desc)")
         else:

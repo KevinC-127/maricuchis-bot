@@ -291,10 +291,14 @@ async def pendiente_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE
         count = 0
         # Agrupar boletos por cliente
         boletos_por_cliente = {}
+        # Importar tracker del dashboard para evitar duplicados
+        from dashboard import _ventas_completadas_procesadas
         for idx in seleccionados:
             v = pendientes[idx]
             if await actualizar_estado_venta(v["id"], "Completado"):
                 count += 1
+                # Registrar en el tracker para que el checker no lo duplique
+                _ventas_completadas_procesadas.add(v["id"])
                 cliente = v.get("cliente", "")
                 if cliente and cliente.lower() not in ("sin cliente", "anonimo", "anónimo", ""):
                     cant = v.get("cantidad", 0) or 1

@@ -488,7 +488,8 @@ def _sync_crear_venta_notion(prenda_id, cantidad, precio_final, ganancia,
     if r.status_code not in (200, 201):
         logger.error(f"Error Notion Ventas {r.status_code}: {r.text[:300]}")
         return False
-    return True
+    # Devolver page_id para tracking de boletos
+    return r.json().get("id", True)
 
 async def crear_boleto_notion(*args, **kwargs):
     import asyncio
