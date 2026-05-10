@@ -405,7 +405,38 @@ async def _continuar_sesion(update, context, sesion, mensaje):
     if tipo == "agregar_prenda":
         faltantes = campos_faltantes_prenda(datos)
         if not faltantes:
-            return
+            # Datos completos → verificar si es confirmación/cancelación/edición por voz
+            accion = _detectar_accion_voz(mensaje)
+            if accion == "confirmar":
+                await _ejecutar_confirmacion_directa(update, context, sesion)
+                return
+            elif accion == "cancelar":
+                cerrar_sesion(chat_id)
+                await update.message.reply_text("❌ Operación cancelada. 😉")
+                return
+            elif accion == "editar":
+                # Usar LLM para interpretar la edición
+                cambios = await _interpretar_edicion(mensaje, datos, "prenda", tiendas=tiendas)
+                if cambios:
+                    for k, v in cambios.items():
+                        if v is not None:
+                            datos[k] = v
+                    sesion["datos"] = datos
+                    sesion["timestamp"] = __import__("time").time()
+                resumen = formatear_resumen_prenda(datos)
+                kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
+                       InlineKeyboardButton("📸 Agregar foto", callback_data="ia_foto"),
+                       InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
+                await update.message.reply_text(f"✏️ Actualizado:\n{resumen}\n\n¿Confirmas?", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+                return
+            else:
+                # No se entendió → mostrar resumen de nuevo
+                resumen = formatear_resumen_prenda(datos)
+                kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
+                       InlineKeyboardButton("📸 Agregar foto", callback_data="ia_foto"),
+                       InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
+                await update.message.reply_text(f"{resumen}\n\n¿Confirmas? _Puedes decir 'confirmar', 'cancelar' o pedir un cambio_", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+                return
         
         nuevos = await completar_datos("prenda nueva", mensaje, datos, faltantes, tiendas=tiendas)
         
@@ -462,11 +493,42 @@ async def _continuar_sesion(update, context, sesion, mensaje):
         
         faltantes = campos_faltantes_venta(datos)
         if not faltantes and not datos.get("_cliente_pendiente"):
-            resumen = formatear_resumen_venta(datos)
-            kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
-                   InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
-            await update.message.reply_text(f"{resumen}\n\n¿Confirmas?", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
-            return
+            # Datos completos → verificar si es confirmación/cancelación/edición por voz
+            accion = _detectar_accion_voz(mensaje)
+            if accion == "confirmar":
+                await _ejecutar_confirmacion_directa(update, context, sesion)
+                return
+            elif accion == "cancelar":
+                cerrar_sesion(chat_id)
+                await update.message.reply_text("❌ Operación cancelada. 😉")
+                return
+            elif accion == "editar":
+                cambios = await _interpretar_edicion(mensaje, datos, "venta", clientes=clientes, prendas=prendas)
+                if cambios:
+                    for k, v in cambios.items():
+                        if v is not None:
+                            if k == "items" and isinstance(v, list):
+                                # Merge inteligente de items editados
+                                for item_nuevo in v:
+                                    for item_actual in datos.get("items", []):
+                                        if item_nuevo.get("prenda", "").lower() in item_actual.get("prenda", "").lower():
+                                            item_actual.update(item_nuevo)
+                                            break
+                            else:
+                                datos[k] = v
+                    sesion["datos"] = datos
+                    sesion["timestamp"] = __import__("time").time()
+                resumen = formatear_resumen_venta(datos)
+                kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
+                       InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
+                await update.message.reply_text(f"✏️ Actualizado:\n{resumen}\n\n¿Confirmas?", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+                return
+            else:
+                resumen = formatear_resumen_venta(datos)
+                kb = [[InlineKeyboardButton("✅ Confirmar", callback_data="ia_confirm"),
+                       InlineKeyboardButton("❌ Cancelar", callback_data="ia_cancel")]]
+                await update.message.reply_text(f"{resumen}\n\n¿Confirmas? _Puedes decir 'confirmar', 'cancelar' o pedir un cambio_", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb))
+                return
         
         if not faltantes:
             return
@@ -697,6 +759,169 @@ async def _ejecutar_pendientes(update, context, sesion):
     
     await query.edit_message_text(f"✅ *{count} pendientes completados* de {cliente}\n🎟️ {boletos} boletos asignados", parse_mode="Markdown")
     cerrar_sesion(chat_id)
+
+
+# ============================================================
+# CONFIRMACIÓN/CANCELACIÓN/EDICIÓN POR VOZ
+# ============================================================
+def _detectar_accion_voz(mensaje: str) -> str:
+    """Detecta si el mensaje es confirmación, cancelación o edición."""
+    msg = mensaje.strip().lower().rstrip(".")
+    
+    confirmar = (
+        "confirmar", "confirmalo", "confírmalo", "confirma", "sí", "si", "dale",
+        "sí confirmar", "si confirmar", "todo bien", "todo ok", "está bien",
+        "esta bien", "adelante", "hazlo", "procede", "listo", "aceptar",
+        "aceptalo", "acéptalo", "ok", "okey", "okay", "perfecto",
+        "sí está bien", "si esta bien", "correcto", "de acuerdo",
+        "confirmado", "si confirmado", "sí confirmado",
+    )
+    
+    cancelar = (
+        "cancelar", "cancela", "cancelalo", "cancélalo", "no", "no quiero",
+        "olvídalo", "olvidalo", "déjalo", "dejalo", "ya no", "no nada",
+        "abortemos", "abortemos misión", "abortemos mision", "abortar",
+        "no cancelar", "no mejor no", "descarta", "descártalo",
+    )
+    
+    if msg in confirmar or any(msg.startswith(c) for c in ("si ", "sí ")):
+        # Pero no si contiene "cambia" o "edita" 
+        if any(w in msg for w in ("cambia", "edita", "modifica", "actualiza", "pero")):
+            return "editar"
+        return "confirmar"
+    
+    if msg in cancelar or any(msg.startswith(c) for c in ("no ", "cancel")):
+        return "cancelar"
+    
+    # Detectar ediciones
+    edit_keywords = (
+        "cambia", "modifica", "actualiza", "edita", "corrige",
+        "en lugar de", "en vez de", "quiero que", "mejor",
+        "la fecha", "el precio", "la cantidad", "el estado", "el cliente", "la clienta",
+        "ponle", "ponlo", "que sea", "debería ser",
+    )
+    if any(kw in msg for kw in edit_keywords):
+        return "editar"
+    
+    return "desconocido"
+
+
+async def _ejecutar_confirmacion_directa(update, context, sesion):
+    """Ejecuta la confirmación como si hubiera presionado el botón."""
+    chat_id = update.effective_chat.id
+    
+    # Simular el callback — reutilizar _ejecutar_confirmacion pero adaptado para reply
+    datos = sesion["datos"]
+    tipo = sesion["tipo"]
+    
+    if tipo == "agregar_prenda":
+        from notion_api import crear_prenda_notion
+        from datetime import datetime, timezone
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        exito = await crear_prenda_notion(
+            nombre=datos["nombre"],
+            costo=datos["costo"],
+            precio=datos["precio"],
+            stock=datos["stock"],
+            foto_url=datos.get("foto_url"),
+            tienda=datos.get("tienda"),
+            fecha_compra=fecha,
+        )
+        if exito:
+            await update.message.reply_text(f"✅ *Prenda registrada:* {datos['nombre']}\n📦 {datos['stock']} uds | S/{datos['precio']} c/u", parse_mode="Markdown")
+        else:
+            await update.message.reply_text("❌ Error al registrar en Notion.")
+    
+    elif tipo == "registrar_venta":
+        from notion_api import crear_venta_notion, actualizar_stock_notion, buscar_prendas_notion, crear_boleto_notion
+        from dashboard import _ventas_completadas_procesadas
+        from datetime import datetime, timezone
+        
+        fecha = datos.get("fecha") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        estado = datos.get("estado", "Completado")
+        cliente = datos.get("cliente", "")
+        boletos_total = 0
+        resultados = []
+        
+        for item in datos.get("items", []):
+            prenda_nom = item.get("prenda", "")
+            cantidad = item.get("cantidad", 1)
+            precio = item.get("precio", 0)
+            
+            matches = await buscar_prendas_notion(prenda_nom)
+            if not matches:
+                resultados.append(f"❌ {prenda_nom}: no encontrada")
+                continue
+            
+            p = matches[0]
+            costo_u = p.get("costo_u", 0)
+            ganancia = (precio * cantidad) - (costo_u * cantidad)
+            
+            result = await crear_venta_notion(
+                prenda_id=p["id"], cantidad=cantidad,
+                precio_final=precio, ganancia=ganancia,
+                fecha_iso=fecha, cliente=cliente,
+                descuento=0, estado=estado
+            )
+            if result:
+                if estado == "Completado" and isinstance(result, str):
+                    _ventas_completadas_procesadas.add(result)
+                await actualizar_stock_notion(p["id"], p["stock"] - cantidad)
+                resultados.append(f"✅ {cantidad}× {p['nombre']}")
+                boletos_total += cantidad
+            else:
+                resultados.append(f"❌ Error: {prenda_nom}")
+        
+        boleto_txt = ""
+        if boletos_total > 0 and estado == "Completado" and cliente:
+            await crear_boleto_notion(cliente=cliente, boletos=boletos_total, asunto="Venta por IA", fecha_iso=fecha)
+            boleto_txt = f"\n🎟️ {boletos_total} boletos asignados"
+        
+        res_txt = "\n".join(resultados)
+        await update.message.reply_text(f"🎉 *Venta registrada*\n👤 {cliente}\n{res_txt}{boleto_txt}", parse_mode="Markdown")
+    
+    cerrar_sesion(chat_id)
+
+
+async def _interpretar_edicion(mensaje: str, datos: dict, tipo: str, **context_kwargs) -> dict:
+    """Usa el LLM para interpretar qué campo quiere editar el usuario."""
+    from datetime import datetime
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    
+    if tipo == "venta":
+        items_str = "\n".join(f"- {it.get('prenda','?')} × {it.get('cantidad',1)} a S/{it.get('precio',0)}" for it in datos.get("items", []))
+        system = f"""El usuario quiere EDITAR una venta antes de confirmarla.
+Datos actuales:
+- Cliente: {datos.get('cliente', '?')}
+- Items: 
+{items_str}
+- Estado: {datos.get('estado', '?')}
+- Fecha: {datos.get('fecha', '?')}
+
+FECHA DE HOY: {hoy}. "Ayer" = un día antes.
+
+Interpreta qué quiere cambiar y devuelve SOLO los campos a cambiar en JSON.
+Campos posibles: "cliente", "estado", "fecha", "items" (array con prenda/cantidad/precio a modificar)
+Ejemplo: si dice "cambia la cantidad a 3" → {{"items": [{{"prenda": "nombre_actual", "cantidad": 3}}]}}
+Ejemplo: si dice "la fecha es ayer" → {{"fecha": "{hoy}"}}
+Ejemplo: si dice "ya pagó" → {{"estado": "Completado"}}
+Solo incluye los campos que cambian. Responde SOLO en JSON."""
+    else:
+        system = f"""El usuario quiere EDITAR una prenda antes de confirmarla.
+Datos actuales:
+- Nombre: {datos.get('nombre', '?')}
+- Costo: {datos.get('costo', '?')}
+- Precio: {datos.get('precio', '?')}
+- Stock: {datos.get('stock', '?')}
+- Tienda: {datos.get('tienda', '?')}
+
+Interpreta qué quiere cambiar y devuelve SOLO los campos a cambiar en JSON.
+Campos posibles: "nombre", "costo", "precio", "stock", "tienda"
+Ejemplo: si dice "el precio es 30" → {{"precio": 30}}
+Solo incluye los campos que cambian. Responde SOLO en JSON."""
+    
+    return await llamar_llm(system, mensaje)
 
 
 # ============================================================
