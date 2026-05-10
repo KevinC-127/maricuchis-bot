@@ -2494,7 +2494,7 @@ async def boleto_recibir_asunto(update: Update, context: ContextTypes.DEFAULT_TY
 # GESTIÓN DE AUDIOS (TRANSCRIPCIÓN GROQ WHISPER)
 # ============================================================
 async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = await update.message.reply_text("🎙️ Escuchando audio y transcribiendo...")
+    msg = await update.message.reply_text("🎙️ Escuchando...")
     
     try:
         # 1. Obtener el archivo de voz desde Telegram
@@ -2510,14 +2510,23 @@ async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         texto = await transcribir_audio_groq(bytes(file_bytes))
         
         if not texto or texto.startswith("[Error"):
-            await msg.edit_text(f"❌ No pude entender el audio o hubo un error.\n{texto}")
+            await msg.edit_text(f"❌ No pude entender el audio.\n{texto}")
             return
-            
-        # 4. Devolver el texto al usuario
-        respuesta = f"📝 *Transcripción del audio:*\n\n_\"{texto}\"_"
-        await msg.edit_text(respuesta, parse_mode="Markdown")
         
+        # 4. Mostrar transcripción brevemente y procesar con IA
+        await msg.edit_text(f"🎙️ _\"{texto}\"_\n\n🧠 Procesando...", parse_mode="Markdown")
+        
+        # 5. Pasar al cerebro IA
+        from handlers_ia import handle_ia_message
+        await handle_ia_message(update, context, texto)
+        
+        # Borrar el mensaje de procesamiento si IA ya respondió
+        try:
+            await msg.delete()
+        except:
+            pass
+            
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Error procesando audio: {e}")
-        await msg.edit_text("❌ Ocurrió un error inesperado al procesar el audio.")
+        await msg.edit_text("❌ Ocurrió un error al procesar el audio.")

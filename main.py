@@ -362,13 +362,25 @@ def main():
     app.add_handler(CommandHandler("chatid",      cmd_chatid))
     app.add_handler(CommandHandler("auditarventas", cmd_auditar_ventas))
 
-    # Handler genérico para fotos con caption
+    # Handler genérico para fotos con caption (registro rápido existente)
     app.add_handler(MessageHandler(filters.PHOTO & filters.CAPTION, recibir_foto_nueva))
+    
+    # Handler IA para fotos SIN caption (fuera de ConversationHandler)
+    from handlers_ia import handle_ia_photo, handle_ia_callback, handle_ia_message
+    app.add_handler(MessageHandler(filters.PHOTO & ~filters.CAPTION, handle_ia_photo))
 
     # CallbackQuery para el menú principal
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^fin_"))
     app.add_handler(CallbackQueryHandler(manejar_menu, pattern="^sel_inv_"))
+    
+    # CallbackQuery IA (confirmaciones, cancelaciones, fotos)
+    app.add_handler(CallbackQueryHandler(handle_ia_callback, pattern="^ia_"))
+    
+    # Handler IA para texto libre (último, catch-all para texto sin comando)
+    async def _ia_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await handle_ia_message(update, context)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _ia_text_handler))
 
     # Handler global para callbacks perdidos/reiniciados
     async def callback_invalido(update: Update, context: ContextTypes.DEFAULT_TYPE):
