@@ -289,12 +289,34 @@ async def pendiente_confirmar(update: Update, context: ContextTypes.DEFAULT_TYPE
             
         await query.edit_message_text(f"⏳ Procesando {len(seleccionados)} cobros... por favor espera.")
         count = 0
+        # Agrupar boletos por cliente
+        boletos_por_cliente = {}
         for idx in seleccionados:
             v = pendientes[idx]
-            if await actualizar_estado_venta(v["id"], "Completado"): count += 1
-            
+            if await actualizar_estado_venta(v["id"], "Completado"):
+                count += 1
+                cliente = v.get("cliente", "")
+                if cliente and cliente.lower() not in ("sin cliente", "anonimo", "anónimo", ""):
+                    cant = v.get("cantidad", 0) or 1
+                    boletos_por_cliente[cliente] = boletos_por_cliente.get(cliente, 0) + cant
+        
+        # Asignar boletos automáticamente
+        from notion_api import crear_boleto_notion
+        boleto_msgs = []
+        for cliente, bols in boletos_por_cliente.items():
+            if bols > 0:
+                await crear_boleto_notion(
+                    cliente=cliente,
+                    boletos=bols,
+                    asunto=f"Cobro de venta(s) pendiente(s)",
+                )
+                boleto_msgs.append(f"  🎟️ {cliente}: +{bols} boletos")
+        
         context.user_data["pendientes_seleccionados"] = set()
-        await query.edit_message_text(f"✅ *Se marcaron {count} ventas como Completado*", parse_mode="Markdown")
+        boleto_text = "\n".join(boleto_msgs)
+        if boleto_text:
+            boleto_text = f"\n\n*Boletos asignados:*\n{boleto_text}"
+        await query.edit_message_text(f"✅ *Se marcaron {count} ventas como Completado*{boleto_text}", parse_mode="Markdown")
         return ConversationHandler.END
 
     return PENDIENTE_CONFIRMAR

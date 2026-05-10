@@ -13,6 +13,92 @@ from config import NOTION_HEADERS, NOTION_DATABASE_ID, NOTION_VENTAS_ID, NOTION_
 PORT = int(os.environ.get("PORT", 8080))
 
 # ============================================================
+# AUTO-BOLETOS — Chequeo periódico de ventas completadas
+# ============================================================
+_ventas_completadas_procesadas = set()  # page_ids ya procesados
+_boleto_checker_initialized = False
+
+def _sync_check_new_completadas():
+    """Busca ventas completadas recientes y asigna boletos si no se han asignado."""
+    global _boleto_checker_initialized
+    if not NOTION_VENTAS_ID:
+        return []
+    
+    url = f"https://api.notion.com/v1/databases/{NOTION_VENTAS_ID}/query"
+    payload = {
+        "filter": {"property": "Estado", "select": {"equals": "Completado"}},
+        "sorts": [{"property": "Fecha", "direction": "descending"}],
+        "page_size": 100,
+    }
+    r = req.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+    if r.status_code != 200:
+        return []
+    
+    nuevas = []
+    all_ids = set()
+    for page in r.json().get("results", []):
+        pid = page["id"]
+        all_ids.add(pid)
+        
+        if pid in _ventas_completadas_procesadas:
+            continue
+        
+        if not _boleto_checker_initialized:
+            # Primera ejecución: solo registrar IDs existentes, no crear boletos
+            continue
+        
+        props = page["properties"]
+        cliente_rt = props.get("Cliente", {}).get("rich_text", [])
+        cliente = cliente_rt[0]["text"]["content"].strip() if cliente_rt else ""
+        cantidad = props.get("Cantidad", {}).get("number", 0) or 1
+        fecha_d = props.get("Fecha", {}).get("date") or {}
+        fecha = fecha_d.get("start", "")
+        prenda_n = props.get("Prenda", {}).get("rich_text", [])
+        prenda = prenda_n[0]["text"]["content"] if prenda_n else "Prenda"
+        
+        if cliente and cliente.lower() not in ("sin cliente", "anonimo", "anónimo", ""):
+            nuevas.append({
+                "cliente": cliente,
+                "cantidad": cantidad,
+                "fecha": fecha,
+                "prenda": prenda,
+            })
+    
+    _ventas_completadas_procesadas.update(all_ids)
+    
+    if not _boleto_checker_initialized:
+        _boleto_checker_initialized = True
+        logger.info(f"🎟️ Auto-boletos: inicializado con {len(all_ids)} ventas completadas existentes")
+    
+    return nuevas
+
+async def _boleto_checker_loop():
+    """Loop cada 60s que detecta ventas recién completadas y asigna boletos."""
+    from notion_api import _sync_crear_boleto_notion
+    await asyncio.sleep(10)  # Esperar a que el bot arranque
+    
+    while True:
+        try:
+            nuevas = await asyncio.to_thread(_sync_check_new_completadas)
+            if nuevas:
+                # Agrupar por cliente
+                por_cliente = {}
+                for v in nuevas:
+                    por_cliente[v["cliente"]] = por_cliente.get(v["cliente"], 0) + v["cantidad"]
+                
+                for cliente, bols in por_cliente.items():
+                    await asyncio.to_thread(_sync_crear_boleto_notion,
+                        cliente=cliente,
+                        boletos=bols,
+                        asunto="Auto-asignado al completar venta",
+                    )
+                    logger.info(f"🎟️ Auto-boletos: {cliente} +{bols} boletos")
+        except Exception as e:
+            logger.error(f"Auto-boletos error: {e}")
+        
+        await asyncio.sleep(60)
+
+# ============================================================
 # DATOS — Leer de las 3 bases de datos de Notion
 # ============================================================
 def _sync_get_stats() -> dict:
@@ -347,6 +433,8 @@ async def start_web_server():
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
     logger.info(f"✅ Dashboard corriendo en puerto {PORT}")
+    # Iniciar el chequeo automático de boletos
+    asyncio.create_task(_boleto_checker_loop())
 
 # ============================================================
 # HTML — Cargar desde archivo externo
