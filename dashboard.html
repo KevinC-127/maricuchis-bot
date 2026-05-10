@@ -893,7 +893,7 @@ function updateUI(d){
   document.getElementById('mesTable').innerHTML=months.map(m=>{const mm=d.ventas_por_mes[m];const p=m.split('-');return `<tr><td>${p[1]}/${p[0]}</td><td>${mm.ventas} (${mm.uds} uds)</td><td><span class="tag tag-green">${Sn(mm.ganancia)}</span></td></tr>`;}).join('');
   
   if(d.top_boletos && d.top_boletos.length > 0) {
-      document.getElementById('boletosTable').innerHTML = d.top_boletos.slice(0, 8).map(b => {
+      document.getElementById('boletosTable').innerHTML = d.top_boletos.map(b => {
           const esc = b.nombre.replace(/'/g, "\\'");
           return `<tr onclick="generateBoletoLink('${esc}', ${b.boletos})" style="cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.1)'" onmouseout="this.style.background='transparent'"><td>${b.nombre}</td><td><span class="tag tag-green" style="background:rgba(139,92,246,0.1);color:var(--purple)">${b.boletos}</span></td></tr>`;
       }).join('');

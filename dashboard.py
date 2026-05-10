@@ -230,7 +230,7 @@ def _sync_get_stats() -> dict:
             if not cursor:
                 break
     
-    top_boletos = sorted(boletos_por_clienta.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_boletos = sorted(boletos_por_clienta.items(), key=lambda x: x[1], reverse=True)
 
     ganancia_bruta = total_precio_venta - total_precio_costo
     ganancia_neta  = ganancia_bruta - total_gastos
