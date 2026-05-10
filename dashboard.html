@@ -732,20 +732,20 @@ function updateGoal() {
 function updateGoalRing(d) {
     const fmtToday = new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0')+'-'+String(new Date().getDate()).padStart(2,'0');
     const today = d.ventas_por_dia[fmtToday];
-    const todayIngresos = today ? today.ingresos : 0;
+    const todayGananciaEst = today ? today.ganancia_estimada : 0;
     const todayGanancia = today ? today.ganancia : 0;
     const todayUds = today ? today.uds : 0;
     const todayVentas = today ? today.ventas : 0;
-    const pct = Math.min((todayIngresos / dailyGoal) * 100, 100);
+    const pct = Math.min((todayGananciaEst / dailyGoal) * 100, 100);
     const circumference = 326.7;
     const offset = circumference - (circumference * pct / 100);
     document.getElementById('goalRing').setAttribute('stroke-dashoffset', offset);
     document.getElementById('goalPct').textContent = Math.round(pct) + '%';
     document.getElementById('goalDetail').innerHTML = 
-        `📈 Hoy: <b style="color:var(--green)">${S(todayIngresos)}</b> / ${S(dailyGoal)}<br>` +
-        `💰 Ganancia hoy: <b>${S(todayGanancia)}</b><br>` +
+        `🔮 Ganancia est. hoy: <b style="color:var(--green)">${S(todayGananciaEst)}</b> / ${S(dailyGoal)}<br>` +
+        `💰 Ganancia cobrada: <b>${S(todayGanancia)}</b><br>` +
         `📦 ${todayUds} prendas en ${todayVentas} ventas`;
-    if (todayIngresos >= dailyGoal) launchConfetti();
+    if (todayGananciaEst >= dailyGoal) launchConfetti();
 }
 
 // ─── TREND ARROWS ───
