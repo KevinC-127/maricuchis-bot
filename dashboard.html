@@ -197,6 +197,14 @@ body.light-mode {
       </div>
       <span id="invCount" style="font-size:0.7rem;color:var(--text-light);"></span>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <button onclick="invDateNav(-1)" style="background:rgba(var(--white-rgb),0.06);border:1px solid var(--border);color:var(--text-muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.2)';this.style.color='var(--text)'" onmouseout="this.style.background='rgba(var(--white-rgb),0.06)';this.style.color='var(--text-muted)'">‹</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="invDateLabel" style="font-size:0.8rem;font-weight:600;color:var(--text);"></span>
+        <button onclick="invDateOffset=0;renderInventoryGallery()" id="invDateTodayBtn" style="display:none;background:var(--purple);color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.65rem;transition:0.2s;">Hoy</button>
+      </div>
+      <button onclick="invDateNav(1)" id="invDateRight" style="background:rgba(var(--white-rgb),0.06);border:1px solid var(--border);color:var(--text-muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:0.2s;" onmouseover="this.style.background='rgba(139,92,246,0.2)';this.style.color='var(--text)'" onmouseout="this.style.background='rgba(var(--white-rgb),0.06)';this.style.color='var(--text-muted)'">›</button>
+    </div>
     <div id="invGalleryContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; max-height: 400px; overflow-y: auto; padding-right: 10px;">
     </div>
   </div>
@@ -487,12 +495,40 @@ function closeModal() {
     document.getElementById('clientModal').style.display = 'none';
 }
 
+let invDateOffset = 0;
+function invDateNav(dir) {
+    invDateOffset += dir;
+    if (invDateOffset > 0) invDateOffset = 0;
+    renderInventoryGallery();
+}
+function getInvDateStr(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function renderInventoryGallery() {
     if (!appData || !appData.top_inventario) return;
     const sortBy = document.getElementById('invSort').value;
     
+    // Date navigation
+    const targetDate = getInvDateStr(invDateOffset);
+    const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const d = new Date(targetDate + 'T12:00:00');
+    const parts = targetDate.split('-');
+    let dateLabel = '';
+    if (invDateOffset === 0) dateLabel = `📅 Hoy — ${parts[2]}/${parts[1]}`;
+    else if (invDateOffset === -1) dateLabel = `📅 Ayer — ${parts[2]}/${parts[1]}`;
+    else dateLabel = `📅 ${dayNames[d.getDay()]} — ${parts[2]}/${parts[1]}`;
+    document.getElementById('invDateLabel').textContent = dateLabel;
+    document.getElementById('invDateTodayBtn').style.display = invDateOffset === 0 ? 'none' : 'inline-block';
+    document.getElementById('invDateRight').style.opacity = invDateOffset >= 0 ? '0.3' : '1';
+    document.getElementById('invDateRight').style.pointerEvents = invDateOffset >= 0 ? 'none' : 'auto';
+    
     // Sort inventory
     let sortedInv = [...appData.top_inventario];
+    
+    // Filter by date
+    sortedInv = sortedInv.filter(p => p.fecha === targetDate);
     
     // Filter by search
     const searchTerm = (document.getElementById('invSearch').value || '').toLowerCase().trim();
@@ -507,8 +543,9 @@ function renderInventoryGallery() {
     }
     
     const container = document.getElementById('invGalleryContainer');
+    document.getElementById('invCount').textContent = `${sortedInv.length} prenda${sortedInv.length !== 1 ? 's' : ''}`;
     if (sortedInv.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; grid-column: 1/-1;">No hay prendas en el inventario.</p>';
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; grid-column: 1/-1; text-align:center; padding: 30px 0;">No se agregaron prendas este día.</p>';
         return;
     }
     
