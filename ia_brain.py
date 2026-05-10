@@ -14,6 +14,7 @@ from config import GROQ_API_KEY, logger
 # ============================================================
 GROQ_LLM_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_FALLBACK_MODEL = "llama-3.1-8b-instant"  # Modelo ligero para cuando el principal alcanza su límite
 SESSION_TIMEOUT = 600  # 10 minutos
 
 # ============================================================
@@ -58,7 +59,7 @@ def cerrar_sesion(chat_id: int):
 # LLAMADA A GROQ LLM
 # ============================================================
 def _sync_llamar_llm(system_prompt: str, user_message: str, temperature: float = 0.1) -> str:
-    """Llamada síncrona a Groq LLM."""
+    """Llamada síncrona a Groq LLM con fallback automático."""
     if not GROQ_API_KEY:
         return '{"error": "No hay GROQ_API_KEY"}'
     
@@ -66,24 +67,40 @@ def _sync_llamar_llm(system_prompt: str, user_message: str, temperature: float =
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-    payload = {
-        "model": GROQ_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        "temperature": temperature,
-        "max_tokens": 800,
-        "response_format": {"type": "json_object"},
-    }
     
-    r = requests.post(GROQ_LLM_URL, headers=headers, json=payload, timeout=20)
-    if r.status_code != 200:
-        logger.error(f"Groq LLM error {r.status_code}: {r.text[:300]}")
-        return '{"error": "Error API"}'
+    # Intentar con modelo principal, luego fallback
+    for modelo in (GROQ_MODEL, GROQ_FALLBACK_MODEL):
+        payload = {
+            "model": modelo,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            "temperature": temperature,
+            "max_tokens": 800,
+            "response_format": {"type": "json_object"},
+        }
+        
+        try:
+            r = requests.post(GROQ_LLM_URL, headers=headers, json=payload, timeout=20)
+        except requests.exceptions.Timeout:
+            logger.error(f"Groq LLM timeout con {modelo}")
+            continue
+        
+        if r.status_code == 200:
+            content = r.json()["choices"][0]["message"]["content"]
+            if modelo != GROQ_MODEL:
+                logger.info(f"Usando modelo fallback: {modelo}")
+            return content
+        
+        if r.status_code == 429:
+            logger.warning(f"Rate limit alcanzado para {modelo}, intentando fallback...")
+            continue  # Probar el siguiente modelo
+        
+        logger.error(f"Groq LLM error {r.status_code} con {modelo}: {r.text[:300]}")
+        break  # Otro error → no reintentar
     
-    content = r.json()["choices"][0]["message"]["content"]
-    return content
+    return '{"error": "rate_limit", "message": "Límite de IA alcanzado"}'
 
 async def llamar_llm(system_prompt: str, user_message: str, temperature: float = 0.1) -> dict:
     """Llamada asíncrona a Groq LLM. Retorna dict parseado."""

@@ -61,7 +61,10 @@ async def handle_ia_message(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     resultado = await clasificar_intencion(mensaje)
     
     if resultado.get("error"):
-        await msg.edit_text("❌ Error al procesar. Intenta de nuevo o usa los comandos /menu")
+        if resultado.get("error") == "rate_limit" or resultado.get("message", "").lower().count("límite") > 0:
+            await msg.edit_text("⚠️ Se alcanzó el límite diario de IA. Puedes usar los comandos del menú (/menu) mientras se restablece.\n\n_El límite se reinicia cada 24 horas._", parse_mode="Markdown")
+        else:
+            await msg.edit_text("❌ Error al procesar. Intenta de nuevo o usa los comandos /menu")
         return
 
     intencion = resultado.get("intencion", "no_entendido")

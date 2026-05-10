@@ -35,20 +35,25 @@ async def venta_buscar_prenda(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await update.message.reply_text(f"Buscando '{termino}'...")
     prendas = await buscar_prendas_notion(termino)
-    disponibles = [p for p in prendas if p["stock"] > 0]
     
     if not prendas:
         await update.message.reply_text("No encontré prendas con ese nombre.")
         return VENTA_BUSCAR
-    if not disponibles:
-        agotadas = "\n".join(f"- {p['nombre']}" for p in prendas)
-        await update.message.reply_text(f"Todas las encontradas están agotadas:\n{agotadas}")
-        return VENTA_BUSCAR
         
-    context.user_data["prendas_encontradas"] = {p["id"]: p for p in disponibles}
+    # Mostrar todas las prendas (incluyendo agotadas con advertencia)
+    context.user_data["prendas_encontradas"] = {p["id"]: p for p in prendas}
+    
+    # Advertir si hay agotadas
+    agotadas = [p for p in prendas if p["stock"] <= 0]
+    msg_extra = ""
+    if agotadas:
+        nombres_agotadas = ", ".join(p["nombre"] for p in agotadas[:3])
+        msg_extra = f"\n⚠️ _Algunas tienen stock 0: {nombres_agotadas}_"
+    
     await update.message.reply_text(
-        f"Encontré {len(disponibles)} prendas. ¿Cuál agregas al carrito?",
-        reply_markup=teclado_lista_prendas(disponibles, "sel_venta")
+        f"Encontré {len(prendas)} prendas. ¿Cuál agregas al carrito?{msg_extra}",
+        reply_markup=teclado_lista_prendas(prendas, "sel_venta"),
+        parse_mode="Markdown"
     )
     return VENTA_CONFIRMAR
 
