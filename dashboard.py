@@ -407,6 +407,30 @@ async def handle_boleto_link(request):
     token = _sign_boleto(clienta, boletos)
     return web.json_response({"token": token})
 
+def _sync_fetch_boleto_history(clienta: str) -> list:
+    """Busca todos los registros de boletos de una clienta en Notion."""
+    if not NOTION_BOLETOS_ID:
+        return []
+    url = f"https://api.notion.com/v1/databases/{NOTION_BOLETOS_ID}/query"
+    payload = {
+        "filter": {"property": "Clienta", "title": {"equals": clienta}},
+        "sorts": [{"property": "Fecha", "direction": "descending"}],
+        "page_size": 50,
+    }
+    r = req.post(url, headers=NOTION_HEADERS, json=payload, timeout=15)
+    if r.status_code != 200:
+        return []
+    historial = []
+    for page in r.json().get("results", []):
+        props = page["properties"]
+        bols = props.get("Boletos", {}).get("number", 0) or 0
+        asunto_rt = props.get("Asunto", {}).get("rich_text", [])
+        asunto = asunto_rt[0]["text"]["content"] if asunto_rt else "Compra"
+        fecha_d = props.get("Fecha", {}).get("date") or {}
+        fecha = fecha_d.get("start", "")
+        historial.append({"boletos": bols, "asunto": asunto, "fecha": fecha})
+    return historial
+
 async def handle_boleto_page(request):
     token = request.match_info.get("token", "")
     payload, error = _verify_boleto(token)
@@ -417,7 +441,21 @@ async def handle_boleto_page(request):
     else:
         remaining = max(0, _BOLETO_EXPIRY - (int(time.time()) - payload["t"]))
         mins = remaining // 60
-        html = BOLETO_PAGE_HTML.replace("{{CLIENTA}}", payload["c"]).replace("{{BOLETOS}}", str(payload["b"])).replace("{{MINS}}", str(mins))
+        # Fetch history
+        historial = await asyncio.to_thread(_sync_fetch_boleto_history, payload["c"])
+        hist_html = ""
+        if historial:
+            for h in historial:
+                f_parts = h["fecha"].split("-") if h["fecha"] else []
+                fecha_fmt = f"{f_parts[2]}/{f_parts[1]}/{f_parts[0]}" if len(f_parts) == 3 else "—"
+                hist_html += f'<div class="tx"><div class="tx-left"><div class="tx-asunto">{h["asunto"]}</div><div class="tx-fecha">{fecha_fmt}</div></div><div class="tx-bols">+{h["boletos"]}</div></div>'
+        else:
+            hist_html = '<div style="text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;padding:12px;">Sin registros</div>'
+        html = (BOLETO_PAGE_HTML
+            .replace("{{CLIENTA}}", payload["c"])
+            .replace("{{BOLETOS}}", str(payload["b"]))
+            .replace("{{MINS}}", str(mins))
+            .replace("{{HISTORIAL}}", hist_html))
     return web.Response(text=html, content_type="text/html", charset="utf-8")
 
 # ============================================================
@@ -473,6 +511,14 @@ background:#0a0a0a;background-image:radial-gradient(circle at 50% 0%,rgba(139,92
 .prizes h4{font-size:0.75rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;}
 .prize{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:0.85rem;color:rgba(255,255,255,0.7);}
 .prize span{font-size:1.1rem;}
+.history{margin-top:16px;text-align:left;background:rgba(255,255,255,0.03);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.06);}
+.history h4{font-size:0.75rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;}
+.tx{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.tx:last-child{border-bottom:none;}
+.tx-left{display:flex;flex-direction:column;gap:2px;}
+.tx-asunto{font-size:0.8rem;color:rgba(255,255,255,0.7);}
+.tx-fecha{font-size:0.65rem;color:rgba(255,255,255,0.3);}
+.tx-bols{font-size:0.9rem;font-weight:700;color:#10b981;white-space:nowrap;}
 .footer{margin-top:24px;font-size:0.65rem;color:rgba(255,255,255,0.25);line-height:1.5;}
 </style>
 </head>
@@ -491,6 +537,10 @@ background:#0a0a0a;background-image:radial-gradient(circle at 50% 0%,rgba(139,92
         <div class="prize"><span>🥇</span> Paquete de prendas por S/100</div>
         <div class="prize"><span>🥈</span> Paquete de prendas por S/50</div>
         <div class="prize"><span>🥉</span> Paquete de prendas por S/20</div>
+    </div>
+    <div class="history">
+        <h4>📋 Historial de boletos</h4>
+        {{HISTORIAL}}
     </div>
     <div class="footer">
         Este enlace es válido por {{MINS}} minutos más.<br>
