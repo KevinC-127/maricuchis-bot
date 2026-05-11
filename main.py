@@ -373,6 +373,66 @@ def main():
             await msg.edit_text(f"❌ Error al ejecutar: {e}")
     app.add_handler(CommandHandler("corregir_decimales", cmd_corregir_decimales))
 
+    # Comando para el sorteo
+    async def cmd_sorteo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        msg = await update.message.reply_text("🎁 Calculando boletos desde Notion... esto puede tomar unos segundos.")
+        from config import NOTION_HEADERS, NOTION_BOLETOS_ID
+        import requests
+        
+        url = f"https://api.api.com/v1/databases/{NOTION_BOLETOS_ID}/query" # Wait, correct URL is api.notion.com
+        url = f"https://api.notion.com/v1/databases/{NOTION_BOLETOS_ID}/query"
+        
+        has_more = True
+        start_cursor = None
+        clientas_totales = {}
+        
+        while has_more:
+            payload = {"page_size": 100}
+            if start_cursor: payload["start_cursor"] = start_cursor
+            r = requests.post(url, headers=NOTION_HEADERS, json=payload)
+            if r.status_code != 200:
+                await msg.edit_text("❌ Error al conectar con Notion.")
+                return
+            
+            data = r.json()
+            for page in data.get("results", []):
+                props = page["properties"]
+                nom_rt = props.get("Clienta", {}).get("title", [])
+                nombre = nom_rt[0]["text"]["content"].strip() if nom_rt else ""
+                bols = props.get("Boletos", {}).get("number", 0) or 0
+                
+                if nombre:
+                    clientas_totales[nombre] = clientas_totales.get(nombre, 0) + bols
+                    
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")
+            
+        # Filtrar clientas con boletos > 0
+        lista_nombres = []
+        for nombre, cantidad in clientas_totales.items():
+            if cantidad > 0:
+                lista_nombres.extend([nombre] * int(cantidad))
+                
+        if not lista_nombres:
+            await msg.edit_text("😢 No encontré a ninguna clienta con boletos válidos.")
+            return
+            
+        import random
+        random.shuffle(lista_nombres) # Mezclar para que no queden todos juntos
+        texto_final = "\n".join(lista_nombres)
+        
+        # Enviar archivo si es muy largo, sino en texto
+        if len(texto_final) > 4000:
+            import io
+            file = io.BytesIO(texto_final.encode('utf-8'))
+            file.name = "Lista_Sorteo.txt"
+            await msg.edit_text("✅ La lista es muy larga, así que te la envío en archivo:")
+            await update.message.reply_document(document=file)
+        else:
+            await msg.edit_text(f"✅ **Lista generada ({len(lista_nombres)} oportunidades en total):**\n\nCopia y pega el texto de abajo en la ruleta:\n\n`{texto_final}`", parse_mode="Markdown")
+            
+    app.add_handler(CommandHandler("sorteo", cmd_sorteo))
+
     # Handler genérico para fotos con caption (registro rápido existente)
     app.add_handler(MessageHandler(filters.PHOTO & filters.CAPTION, recibir_foto_nueva))
     
